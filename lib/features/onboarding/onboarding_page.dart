@@ -317,7 +317,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         const _FeatureRow(
           icon: Icons.lock_outline,
           title: '数据只属于你',
-          message: '不注册、不联网，全部记录保存在本机。',
+          message: '不注册，记录保存在本机；只有使用 AI 助手时才会联网。',
         ),
         const SizedBox(height: 12),
         Container(

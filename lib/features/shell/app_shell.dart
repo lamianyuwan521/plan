@@ -3,13 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
+import '../ai/ai_page.dart';
 import '../recipes/recipes_page.dart';
 import '../settings/settings_page.dart';
 import '../today/today_page.dart';
 import '../water/water_page.dart';
 import '../weight/weight_page.dart';
 
-enum ShellSection { today, recipes, weight, water }
+enum ShellSection { today, recipes, weight, water, ai }
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -72,6 +73,7 @@ class _AppShellState extends State<AppShell> {
           const RecipesPage(),
           const WeightPage(),
           const WaterPage(),
+          const AiPage(),
         ];
         final content = Center(
           child: ConstrainedBox(
@@ -309,6 +311,13 @@ class AppSidebar extends StatelessWidget {
             selected: selected == ShellSection.water,
             onTap: () => onSelect(ShellSection.water),
           ),
+          _SidebarItem(
+            icon: Icons.auto_awesome_outlined,
+            label: 'AI 助手',
+            expanded: expanded,
+            selected: selected == ShellSection.ai,
+            onTap: () => onSelect(ShellSection.ai),
+          ),
           const Spacer(),
           const Divider(),
           _SidebarItem(
@@ -322,7 +331,7 @@ class AppSidebar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
               child: Text(
-                'v1.0.0 · 数据仅存本机',
+                'v1.0.0 · 记录保存在本机',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),

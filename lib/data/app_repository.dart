@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../core/app_date.dart';
 import '../core/calculators.dart';
+import '../models/ai.dart';
 import '../models/models.dart';
 import 'seed_recipes.dart';
 
@@ -22,6 +23,7 @@ class AppRepository extends ChangeNotifier {
   static const String _kEntries = 'xy.meals';
   static const String _kWater = 'xy.water';
   static const String _kSeedVersion = 'xy.seedVersion';
+  static const String _kAiConfig = 'xy.ai';
 
   static const List<String> _mealOrder = [
     'breakfast',
@@ -37,6 +39,7 @@ class AppRepository extends ChangeNotifier {
   final List<Recipe> _recipes = [];
   final List<MealEntry> _entries = [];
   final List<WaterLog> _water = [];
+  AiConfig _aiConfig = const AiConfig();
 
   bool _loaded = false;
   String? _loadError;
@@ -45,6 +48,8 @@ class AppRepository extends ChangeNotifier {
   String? get loadError => _loadError;
 
   Profile get profile => _profile;
+
+  AiConfig get aiConfig => _aiConfig;
 
   List<WeightRecord> get weightRecords =>
       List<WeightRecord>.unmodifiable(_sortedWeights());
@@ -83,6 +88,13 @@ class AppRepository extends ChangeNotifier {
       _water
         ..clear()
         ..addAll(_decodeList(_kWater, WaterLog.fromJson));
+      final aiRaw = _prefs!.getString(_kAiConfig);
+      if (aiRaw != null && aiRaw.isNotEmpty) {
+        final decoded = jsonDecode(aiRaw);
+        if (decoded is Map) {
+          _aiConfig = AiConfig.fromJson(Map<String, dynamic>.from(decoded));
+        }
+      }
     } catch (error) {
       _loadError = '$error';
     }
@@ -168,6 +180,12 @@ class AppRepository extends ChangeNotifier {
   Future<void> updateProfile(Profile value) async {
     _profile = value;
     await _saveProfile();
+    notifyListeners();
+  }
+
+  Future<void> updateAiConfig(AiConfig value) async {
+    _aiConfig = value;
+    await _prefs?.setString(_kAiConfig, jsonEncode(value.toJson()));
     notifyListeners();
   }
 
@@ -310,6 +328,15 @@ class AppRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 批量加入一套长期方案的所有餐次，只写一次存储。
+  Future<void> addMealEntries(Iterable<MealEntry> entries) async {
+    final list = entries.toList(growable: false);
+    if (list.isEmpty) return;
+    _entries.addAll(list);
+    await _saveEntries();
+    notifyListeners();
+  }
+
   Future<void> updateMealEntry(MealEntry entry) async {
     final index = _entries.indexWhere((e) => e.id == entry.id);
     if (index < 0) return;
@@ -320,6 +347,16 @@ class AppRepository extends ChangeNotifier {
 
   Future<void> deleteMealEntry(String id) async {
     _entries.removeWhere((e) => e.id == id);
+    await _saveEntries();
+    notifyListeners();
+  }
+
+  Future<void> deleteMealEntries(Iterable<String> ids) async {
+    final set = ids.toSet();
+    if (set.isEmpty) return;
+    final before = _entries.length;
+    _entries.removeWhere((e) => set.contains(e.id));
+    if (_entries.length == before) return;
     await _saveEntries();
     notifyListeners();
   }

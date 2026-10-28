@@ -6,6 +6,7 @@ import '../../core/formatters.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
 import '../../services/export_service.dart';
+import 'ai_settings_page.dart';
 import 'goal_edit_page.dart';
 import 'profile_edit_page.dart';
 
@@ -114,6 +115,28 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
           _SettingsSection(
+            title: 'AI 助手',
+            children: [
+              ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14),
+                leading: const Icon(Icons.auto_awesome_outlined),
+                title: const Text('接入 AI'),
+                subtitle: Text(
+                  repository.aiConfig.isConfigured
+                      ? '已配置 · ${repository.aiConfig.model}'
+                      : '未配置 · 用免费额度聊聊今天怎么吃',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const AiSettingsPage(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          _SettingsSection(
             title: '数据',
             children: [
               ListTile(
@@ -154,7 +177,7 @@ class SettingsPage extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 14),
                 leading: const Icon(Icons.info_outline),
                 title: const Text('关于小一二减肥记'),
-                subtitle: const Text('版本 1.0.0 · 数据仅存本机'),
+                subtitle: const Text('版本 1.0.0 · 记录保存在本机'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _showAbout(context),
               ),
@@ -264,7 +287,7 @@ class SettingsPage extends StatelessWidget {
             SizedBox(height: 10),
             Text('把今天吃了什么、喝了多少、体重有没有降，收进一张不用动脑子的日历。'),
             SizedBox(height: 12),
-            Text('数据只保存在本机，不注册、不联网、不上传。建议定期在「导出数据」里做一次备份。'),
+            Text('数据只保存在本机，不注册。只有你使用 AI 助手并发送消息时，才会把资料摘要和对话内容发送给你自己配置的 AI 服务。建议定期在「导出数据」里做一次备份。'),
           ],
         ),
         actions: [

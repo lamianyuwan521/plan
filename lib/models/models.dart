@@ -464,6 +464,62 @@ class WaterLog {
   }
 }
 
+/// 长期方案里的一餐。方案是内置模板，热量为估算值。
+class PlanMeal {
+  const PlanMeal({
+    required this.mealType,
+    required this.name,
+    required this.calories,
+  });
+
+  final String mealType; // breakfast / lunch / dinner
+  final String name;
+  final int calories;
+}
+
+class PlanDay {
+  const PlanDay({required this.meals, this.weightJin, this.note});
+
+  final List<PlanMeal> meals;
+
+  /// 方案记录里留下来的参考体重，单位为斤。
+  final double? weightJin;
+  final String? note;
+
+  int get calories => meals.fold<int>(0, (sum, meal) => sum + meal.calories);
+
+  PlanMeal? mealOf(String mealType) {
+    for (final meal in meals) {
+      if (meal.mealType == mealType) return meal;
+    }
+    return null;
+  }
+}
+
+/// 内置的多日食谱方案，例如「7 天极速掉秤」。
+class DietPlan {
+  const DietPlan({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.tags,
+    required this.days,
+  });
+
+  final String id;
+  final String name;
+  final String description;
+  final List<String> tags;
+  final List<PlanDay> days;
+
+  int get totalCalories => days.fold<int>(0, (sum, day) => sum + day.calories);
+
+  int get averageCalories =>
+      days.isEmpty ? 0 : (totalCalories / days.length).round();
+
+  int get mealCount => days.fold<int>(0, (sum, day) => sum + day.meals.length);
+}
+
 class MealProgress {
   const MealProgress({
     required this.hasEntries,
