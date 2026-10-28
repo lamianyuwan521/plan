@@ -4,13 +4,14 @@ import 'package:provider/provider.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
 import '../ai/ai_page.dart';
+import '../exercise/exercise_page.dart';
 import '../recipes/recipes_page.dart';
 import '../settings/settings_page.dart';
 import '../today/today_page.dart';
 import '../water/water_page.dart';
 import '../weight/weight_page.dart';
 
-enum ShellSection { today, recipes, weight, water, ai }
+enum ShellSection { today, recipes, exercise, weight, water, ai }
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -34,9 +35,9 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _openSettings() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage()));
   }
 
   void _select(ShellSection section) {
@@ -62,15 +63,18 @@ class _AppShellState extends State<AppShell> {
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 600;
         final isWide = constraints.maxWidth >= 1024;
-        final expanded = _expandedOverride ??
+        final expanded =
+            _expandedOverride ??
             (isWide ? repository.profile.sidebarExpanded : false);
 
         final pages = <Widget>[
           TodayPage(
             onOpenRecipes: () => _select(ShellSection.recipes),
             onOpenWater: () => _select(ShellSection.water),
+            onOpenExercise: () => _select(ShellSection.exercise),
           ),
           const RecipesPage(),
+          const ExercisePage(),
           const WeightPage(),
           const WaterPage(),
           const AiPage(),
@@ -163,7 +167,9 @@ class _AppShellState extends State<AppShell> {
                 Positioned.fill(
                   child: GestureDetector(
                     onTap: () => setState(() => _expandedOverride = false),
-                    child: Container(color: Colors.black.withValues(alpha: 0.28)),
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.28),
+                    ),
                   ),
                 ),
                 Positioned(
@@ -227,8 +233,9 @@ class AppSidebar extends StatelessWidget {
     return Material(
       color: scheme.surface,
       child: Column(
-        crossAxisAlignment:
-            expanded ? CrossAxisAlignment.stretch : CrossAxisAlignment.center,
+        crossAxisAlignment: expanded
+            ? CrossAxisAlignment.stretch
+            : CrossAxisAlignment.center,
         children: [
           if (expanded)
             Padding(
@@ -296,6 +303,13 @@ class AppSidebar extends StatelessWidget {
             expanded: expanded,
             selected: selected == ShellSection.recipes,
             onTap: () => onSelect(ShellSection.recipes),
+          ),
+          _SidebarItem(
+            icon: Icons.fitness_center,
+            label: '运动',
+            expanded: expanded,
+            selected: selected == ShellSection.exercise,
+            onTap: () => onSelect(ShellSection.exercise),
           ),
           _SidebarItem(
             icon: Icons.monitor_weight_outlined,
@@ -366,18 +380,16 @@ class _SidebarItem extends StatelessWidget {
     final foreground = selected ? scheme.primary : scheme.onSurfaceVariant;
     final content = Container(
       height: 46,
-      margin: EdgeInsets.symmetric(
-        horizontal: expanded ? 10 : 8,
-        vertical: 2,
-      ),
+      margin: EdgeInsets.symmetric(horizontal: expanded ? 10 : 8, vertical: 2),
       padding: EdgeInsets.symmetric(horizontal: expanded ? 12 : 0),
       decoration: BoxDecoration(
         color: selected ? scheme.primaryContainer : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        mainAxisAlignment:
-            expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+        mainAxisAlignment: expanded
+            ? MainAxisAlignment.start
+            : MainAxisAlignment.center,
         children: [
           Icon(icon, size: 22, color: foreground),
           if (expanded) ...[
@@ -407,8 +419,6 @@ class _SidebarItem extends StatelessWidget {
       child: InkWell(onTap: onTap, child: content),
     );
 
-    return expanded
-        ? tappable
-        : Tooltip(message: label, child: tappable);
+    return expanded ? tappable : Tooltip(message: label, child: tappable);
   }
 }

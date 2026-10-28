@@ -5,10 +5,10 @@ import '../../core/app_date.dart';
 import '../../core/formatters.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
-import '../../data/seed_plans.dart';
 import '../../models/models.dart';
 import 'add_food_sheet.dart';
 import 'plan_detail_page.dart';
+import 'plan_edit_page.dart';
 
 class PlanView extends StatefulWidget {
   const PlanView({super.key});
@@ -22,10 +22,7 @@ class _PlanViewState extends State<PlanView> {
 
   DateTime _currentWeekStart(AppRepository repository) {
     return _weekStartOverride ??
-        AppDate.startOfWeek(
-          AppDate.today(),
-          repository.profile.weekStart,
-        );
+        AppDate.startOfWeek(AppDate.today(), repository.profile.weekStart);
   }
 
   void _shiftWeek(int delta) {
@@ -36,6 +33,28 @@ class _PlanViewState extends State<PlanView> {
     });
   }
 
+  void _openEditor({DietPlan? plan, bool saveAsCopy = false}) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PlanEditPage(initialPlan: plan, saveAsCopy: saveAsCopy),
+      ),
+    );
+  }
+
+  Future<void> _deletePlan(DietPlan plan) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: '删除「${plan.name}」？',
+      message: '只会删除这套方案，已经铺进日历的三餐不会受影响。',
+      confirmLabel: '删除',
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    await context.read<AppRepository>().deleteDietPlan(plan.id);
+    if (!mounted) return;
+    showAppSnackBar(context, '已删除「${plan.name}」');
+  }
+
   @override
   Widget build(BuildContext context) {
     final repository = context.watch<AppRepository>();
@@ -44,20 +63,35 @@ class _PlanViewState extends State<PlanView> {
     final weekStart = _currentWeekStart(repository);
     final days = AppDate.weekDays(weekStart, repository.profile.weekStart);
     final entriesByDate = <String, List<MealEntry>>{
-      for (final day in days) AppDate.key(day): repository.entriesFor(AppDate.key(day)),
+      for (final day in days)
+        AppDate.key(day): repository.entriesFor(AppDate.key(day)),
     };
     final allEntries = entriesByDate.values.expand((list) => list).toList();
-    final totalKcal =
-        allEntries.fold<int>(0, (sum, entry) => sum + entry.calories);
-    final completed =
-        allEntries.where((entry) => entry.isCompleted).length;
+    final totalKcal = allEntries.fold<int>(
+      0,
+      (sum, entry) => sum + entry.calories,
+    );
+    final completed = allEntries.where((entry) => entry.isCompleted).length;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       children: [
-        const _SectionHeading(title: '长期食谱', subtitle: '选一套方案，定好日期就能按天自动排进日历'),
+        _SectionHeading(
+          title: '长期食谱',
+          subtitle: '选一套方案，定好日期就能按天自动排进日历',
+          trailing: TextButton.icon(
+            onPressed: () => _openEditor(),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('新建'),
+          ),
+        ),
         const SizedBox(height: 10),
-        const _LongTermPlansSection(),
+        _LongTermPlansSection(
+          plans: repository.dietPlans,
+          onEdit: (plan) => _openEditor(plan: plan),
+          onCopy: (plan) => _openEditor(plan: plan, saveAsCopy: true),
+          onDelete: _deletePlan,
+        ),
         const SizedBox(height: 22),
         const _SectionHeading(title: '本周安排', subtitle: '按周查看每天的三餐，到当天打勾'),
         const SizedBox(height: 10),
@@ -89,8 +123,7 @@ class _PlanViewState extends State<PlanView> {
                     icon: const Icon(Icons.chevron_right),
                   ),
                   TextButton(
-                    onPressed: () =>
-                        setState(() => _weekStartOverride = null),
+                    onPressed: () => setState(() => _weekStartOverride = null),
                     child: const Text('本周'),
                   ),
                 ],
@@ -170,39 +203,58 @@ class _PlanViewState extends State<PlanView> {
 }
 
 class _SectionHeading extends StatelessWidget {
-  const _SectionHeading({required this.title, this.subtitle});
+  const _SectionHeading({required this.title, this.subtitle, this.trailing});
 
   final String title;
   final String? subtitle;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
-        if (subtitle != null) ...[
-          const SizedBox(height: 2),
-          Text(
-            subtitle!,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
+        if (trailing != null) ...[const SizedBox(width: 8), trailing!],
       ],
     );
   }
 }
 
 class _LongTermPlansSection extends StatelessWidget {
-  const _LongTermPlansSection();
+  const _LongTermPlansSection({
+    required this.plans,
+    required this.onEdit,
+    required this.onCopy,
+    required this.onDelete,
+  });
+
+  final List<DietPlan> plans;
+  final ValueChanged<DietPlan> onEdit;
+  final ValueChanged<DietPlan> onCopy;
+  final ValueChanged<DietPlan> onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -215,11 +267,16 @@ class _LongTermPlansSection extends StatelessWidget {
             spacing: spacing,
             runSpacing: spacing,
             children: [
-              for (final plan in seedPlans)
+              for (final plan in plans)
                 SizedBox(
                   width: width,
                   height: 168,
-                  child: _LongTermPlanCard(plan: plan),
+                  child: _LongTermPlanCard(
+                    plan: plan,
+                    onEdit: () => onEdit(plan),
+                    onCopy: () => onCopy(plan),
+                    onDelete: () => onDelete(plan),
+                  ),
                 ),
             ],
           );
@@ -229,11 +286,16 @@ class _LongTermPlansSection extends StatelessWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             clipBehavior: Clip.none,
-            itemCount: seedPlans.length,
+            itemCount: plans.length,
             separatorBuilder: (_, __) => const SizedBox(width: 10),
             itemBuilder: (context, index) => SizedBox(
               width: 268,
-              child: _LongTermPlanCard(plan: seedPlans[index]),
+              child: _LongTermPlanCard(
+                plan: plans[index],
+                onEdit: () => onEdit(plans[index]),
+                onCopy: () => onCopy(plans[index]),
+                onDelete: () => onDelete(plans[index]),
+              ),
             ),
           ),
         );
@@ -243,15 +305,23 @@ class _LongTermPlansSection extends StatelessWidget {
 }
 
 class _LongTermPlanCard extends StatelessWidget {
-  const _LongTermPlanCard({required this.plan});
+  const _LongTermPlanCard({
+    required this.plan,
+    required this.onEdit,
+    required this.onCopy,
+    required this.onDelete,
+  });
 
   final DietPlan plan;
+  final VoidCallback onEdit;
+  final VoidCallback onCopy;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SectionCard(
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => PlanDetailPage(planId: plan.id),
@@ -272,7 +342,9 @@ class _LongTermPlanCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
-                  Icons.calendar_month_outlined,
+                  plan.isCustom
+                      ? Icons.auto_awesome_outlined
+                      : Icons.calendar_month_outlined,
                   size: 19,
                   color: theme.colorScheme.primary,
                 ),
@@ -288,17 +360,29 @@ class _LongTermPlanCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: theme.colorScheme.onSurfaceVariant,
+              PopupMenuButton<String>(
+                tooltip: '方案操作',
+                icon: const Icon(Icons.more_vert, size: 18),
+                padding: EdgeInsets.zero,
+                onSelected: (value) {
+                  if (value == 'edit') onEdit();
+                  if (value == 'copy') onCopy();
+                  if (value == 'delete') onDelete();
+                },
+                itemBuilder: (context) => [
+                  if (plan.isCustom)
+                    const PopupMenuItem(value: 'edit', child: Text('编辑方案')),
+                  const PopupMenuItem(value: 'copy', child: Text('复制并编辑')),
+                  if (plan.isCustom)
+                    const PopupMenuItem(value: 'delete', child: Text('删除方案')),
+                ],
               ),
             ],
           ),
           const SizedBox(height: 8),
           Expanded(
             child: Text(
-              plan.description,
+              plan.description.isEmpty ? '自定义长期食谱' : plan.description,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -314,14 +398,24 @@ class _LongTermPlanCard extends StatelessWidget {
               const SizedBox(width: 6),
               TagChip(label: '日均 ${plan.averageCalories} kcal'),
               const Spacer(),
-              for (final tag in plan.tags.take(1))
+              if (plan.isCustom)
                 Text(
-                  tag,
+                  '自定义',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.primary,
                     fontWeight: FontWeight.w700,
                   ),
-                ),
+                )
+              else
+                for (final tag in plan.tags.take(1))
+                  Text(
+                    tag,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              const SizedBox(width: 4),
             ],
           ),
         ],
@@ -331,11 +425,7 @@ class _LongTermPlanCard extends StatelessWidget {
 }
 
 class _WeekStat extends StatelessWidget {
-  const _WeekStat({
-    required this.label,
-    required this.value,
-    this.unit,
-  });
+  const _WeekStat({required this.label, required this.value, this.unit});
 
   final String label;
   final String value;
@@ -400,8 +490,10 @@ class _PlanDayCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isToday = AppDate.sameDay(date, today);
     final completed = entries.where((entry) => entry.isCompleted).length;
-    final totalKcal =
-        entries.fold<int>(0, (sum, entry) => sum + entry.calories);
+    final totalKcal = entries.fold<int>(
+      0,
+      (sum, entry) => sum + entry.calories,
+    );
 
     return SectionCard(
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 12),
@@ -497,8 +589,9 @@ class _PlanMealRow extends StatelessWidget {
                     child: Text(
                       '未安排',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.7),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.7,
+                        ),
                       ),
                     ),
                   )
@@ -511,8 +604,7 @@ class _PlanMealRow extends StatelessWidget {
                               value: entry.isCompleted,
                               onChanged: isFuture
                                   ? null
-                                  : (value) =>
-                                      onToggle(entry, value ?? false),
+                                  : (value) => onToggle(entry, value ?? false),
                               visualDensity: VisualDensity.compact,
                               materialTapTargetSize:
                                   MaterialTapTargetSize.shrinkWrap,

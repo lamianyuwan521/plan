@@ -6,24 +6,54 @@ import '../../core/app_theme.dart';
 import '../../core/formatters.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
-import '../../data/seed_plans.dart';
 import '../../models/models.dart';
+import 'plan_edit_page.dart';
 
 class PlanDetailPage extends StatelessWidget {
   const PlanDetailPage({super.key, required this.planId});
 
   final String planId;
 
+  void _openEditor(BuildContext context, DietPlan plan) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            PlanEditPage(initialPlan: plan, saveAsCopy: !plan.isCustom),
+      ),
+    );
+  }
+
+  Future<void> _delete(BuildContext context, DietPlan plan) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: '删除「${plan.name}」？',
+      message: '只会删除这套方案，已经铺进日历的三餐不会受影响。',
+      confirmLabel: '删除',
+      destructive: true,
+    );
+    if (!confirmed || !context.mounted) return;
+    final repository = context.read<AppRepository>();
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    await repository.deleteDietPlan(plan.id);
+    if (!context.mounted) return;
+    navigator.pop();
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('已删除「${plan.name}」')));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final plan = planById(planId);
+    final repository = context.watch<AppRepository>();
+    final plan = repository.dietPlanById(planId);
     if (plan == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('长期食谱')),
         body: const EmptyState(
           icon: Icons.calendar_month_outlined,
           title: '方案不存在',
-          message: '这套长期食谱可能已经下架。',
+          message: '这套长期食谱可能已经删除。',
         ),
       );
     }
@@ -32,6 +62,26 @@ class PlanDetailPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(plan.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        actions: [
+          IconButton(
+            tooltip: plan.isCustom ? '编辑方案' : '复制并编辑',
+            onPressed: () => _openEditor(context, plan),
+            icon: Icon(
+              plan.isCustom ? Icons.edit_outlined : Icons.content_copy_outlined,
+            ),
+          ),
+          if (plan.isCustom)
+            PopupMenuButton<String>(
+              tooltip: '更多',
+              onSelected: (value) {
+                if (value == 'delete') _delete(context, plan);
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'delete', child: Text('删除方案')),
+              ],
+            ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -40,15 +90,27 @@ class PlanDetailPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  plan.description,
-                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
-                ),
+                if (plan.description.isNotEmpty)
+                  Text(
+                    plan.description,
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                  )
+                else
+                  Text(
+                    '自定义长期食谱',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      height: 1.5,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
-                  children: [for (final tag in plan.tags) TagChip(label: tag)],
+                  children: [
+                    if (plan.isCustom) const TagChip(label: '自定义'),
+                    for (final tag in plan.tags) TagChip(label: tag),
+                  ],
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -73,6 +135,16 @@ class PlanDetailPage extends StatelessWidget {
               ],
             ),
           ),
+          if (plan.days.isEmpty) ...[
+            const SizedBox(height: 16),
+            EmptyState(
+              icon: Icons.edit_note_outlined,
+              title: '这套方案还没有安排',
+              message: '点右上角的编辑按钮，给每天加上三餐。',
+              actionLabel: '编辑方案',
+              onAction: () => _openEditor(context, plan),
+            ),
+          ],
           const SizedBox(height: 16),
           for (var index = 0; index < plan.days.length; index++) ...[
             _PlanDayCard(index: index, day: plan.days[index]),
@@ -106,21 +178,23 @@ class PlanDetailPage extends StatelessWidget {
           ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: FilledButton.icon(
-            onPressed: () => showModalBottomSheet<void>(
-              context: context,
-              isScrollControlled: true,
-              useSafeArea: true,
-              builder: (_) => _AddPlanToCalendarSheet(plan: plan),
+      bottomNavigationBar: plan.days.isEmpty
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: FilledButton.icon(
+                  onPressed: () => showModalBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    useSafeArea: true,
+                    builder: (_) => _AddPlanToCalendarSheet(plan: plan),
+                  ),
+                  icon: const Icon(Icons.event_available_outlined),
+                  label: const Text('加入计划'),
+                ),
+              ),
             ),
-            icon: const Icon(Icons.event_available_outlined),
-            label: const Text('加入计划'),
-          ),
-        ),
-      ),
     );
   }
 }

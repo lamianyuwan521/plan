@@ -17,10 +17,12 @@ class TodayPage extends StatelessWidget {
     super.key,
     required this.onOpenRecipes,
     required this.onOpenWater,
+    required this.onOpenExercise,
   });
 
   final VoidCallback onOpenRecipes;
   final VoidCallback onOpenWater;
+  final VoidCallback onOpenExercise;
 
   @override
   Widget build(BuildContext context) {
@@ -41,8 +43,8 @@ class TodayPage extends StatelessWidget {
     final greeting = hour < 11
         ? '早上好'
         : hour < 18
-            ? '下午好'
-            : '晚上好';
+        ? '下午好'
+        : '晚上好';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
@@ -148,8 +150,7 @@ class TodayPage extends StatelessWidget {
                         const SizedBox(height: 8),
                         _CalorieRow(
                           label: consumed > budget ? '超出' : '剩余',
-                          value:
-                              '${(budget - consumed).abs()} kcal',
+                          value: '${(budget - consumed).abs()} kcal',
                           color: consumed > budget
                               ? AppColors.warning
                               : theme.colorScheme.primary,
@@ -179,6 +180,12 @@ class TodayPage extends StatelessWidget {
           onOpenRecipes: onOpenRecipes,
         ),
         const SizedBox(height: 14),
+        _TodayExerciseCard(
+          repository: repository,
+          dateKey: todayKey,
+          onOpenExercise: onOpenExercise,
+        ),
+        const SizedBox(height: 14),
         SectionCard(
           onTap: onOpenWater,
           child: Column(
@@ -186,8 +193,11 @@ class TodayPage extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.water_drop_outlined,
-                      size: 18, color: AppColors.water),
+                  Icon(
+                    Icons.water_drop_outlined,
+                    size: 18,
+                    color: AppColors.water,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     '喝水',
@@ -213,10 +223,10 @@ class TodayPage extends StatelessWidget {
                       ? 0
                       : (summary.waterMl / goal).clamp(0.0, 1.0),
                   minHeight: 8,
-                  backgroundColor:
-                      AppColors.water.withValues(alpha: 0.14),
-                  valueColor:
-                      const AlwaysStoppedAnimation<Color>(AppColors.water),
+                  backgroundColor: AppColors.water.withValues(alpha: 0.14),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppColors.water,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -282,14 +292,12 @@ class TodayPage extends StatelessWidget {
           .where((record) => record.date != todayKey)
           .map((record) => record.weightKg)
           .toList();
-      if (previous.isNotEmpty &&
-          weight <= previous.reduce(math.min) + 0.001) {
+      if (previous.isNotEmpty && weight <= previous.reduce(math.min) + 0.001) {
         return '新低！${weightText(weight, profile.weightUnit)}，离目标又近了一点。';
       }
     }
     final target = profile.targetWeightKg;
-    if (target != null &&
-        repository.currentWeightKg <= target) {
+    if (target != null && repository.currentWeightKg <= target) {
       return '目标达成！接下来一起稳稳维持。';
     }
     return '今天稳稳的，继续保持。';
@@ -313,8 +321,11 @@ class _StreakChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.local_fire_department,
-              size: 17, color: AppColors.peach),
+          const Icon(
+            Icons.local_fire_department,
+            size: 17,
+            color: AppColors.peach,
+          ),
           const SizedBox(width: 4),
           Text(
             streak > 0 ? '连续 $streak 天' : '今天开个头',
@@ -390,11 +401,11 @@ class _WeightCard extends StatelessWidget {
                 Text(
                   weightKg == null
                       ? (lastRecord == null
-                          ? '还没有称重记录'
-                          : '上次 ${AppDate.dateLabel(AppDate.parse(lastRecord!.date))} · ${weightText(lastRecord!.weightKg, unit)}')
+                            ? '还没有称重记录'
+                            : '上次 ${AppDate.dateLabel(AppDate.parse(lastRecord!.date))} · ${weightText(lastRecord!.weightKg, unit)}')
                       : (delta == null
-                          ? '第一次记录'
-                          : '较上次 ${signedWeight(delta, unit)}'),
+                            ? '第一次记录'
+                            : '较上次 ${signedWeight(delta, unit)}'),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: delta != null && delta < 0
                         ? theme.colorScheme.primary
@@ -417,11 +428,7 @@ class _WeightCard extends StatelessWidget {
 }
 
 class _CalorieRow extends StatelessWidget {
-  const _CalorieRow({
-    required this.label,
-    required this.value,
-    this.color,
-  });
+  const _CalorieRow({required this.label, required this.value, this.color});
 
   final String label;
   final String value;
@@ -546,12 +553,117 @@ class _MealsCard extends StatelessWidget {
     final confirmed = await showConfirmDialog(
       context,
       title: '删除这条饮食记录？',
-      message: '${mealLabel(entry.mealType)} · ${entry.name} · ${entry.calories} kcal',
+      message:
+          '${mealLabel(entry.mealType)} · ${entry.name} · ${entry.calories} kcal',
       confirmLabel: '删除',
       destructive: true,
     );
     if (!confirmed) return;
     await repository.deleteMealEntry(entry.id);
+  }
+}
+
+class _TodayExerciseCard extends StatelessWidget {
+  const _TodayExerciseCard({
+    required this.repository,
+    required this.dateKey,
+    required this.onOpenExercise,
+  });
+
+  final AppRepository repository;
+  final String dateKey;
+  final VoidCallback onOpenExercise;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final entries = repository.exerciseEntriesFor(dateKey);
+    final completed = entries.where((entry) => entry.completed).length;
+    return SectionCard(
+      onTap: onOpenExercise,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.fitness_center, size: 18, color: AppColors.mint),
+              const SizedBox(width: 6),
+              Text(
+                '今日运动',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                entries.isEmpty ? '未安排' : '$completed/${entries.length} 完成',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '去运动 ›',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          if (entries.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '今天还没有运动安排，去挑一个 B 站热门跟练吧。',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          else
+            for (final entry in entries)
+              Row(
+                children: [
+                  Checkbox(
+                    value: entry.completed,
+                    onChanged: (value) => repository.setExerciseCompleted(
+                      entry.id,
+                      value ?? false,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  Expanded(
+                    child: Text(
+                      repository.exerciseById(entry.exerciseId)?.title ??
+                          '视频已下架',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        decoration: entry.completed
+                            ? TextDecoration.lineThrough
+                            : null,
+                        color: entry.completed
+                            ? theme.colorScheme.onSurfaceVariant
+                            : null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    repository.exerciseById(entry.exerciseId)?.durationLabel ??
+                        '',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+        ],
+      ),
+    );
   }
 }
 
@@ -608,11 +720,11 @@ class _MealBlock extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             child: Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.35),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.35,
+                ),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(

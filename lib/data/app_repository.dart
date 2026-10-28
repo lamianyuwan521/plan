@@ -7,7 +7,10 @@ import 'package:uuid/uuid.dart';
 import '../core/app_date.dart';
 import '../core/calculators.dart';
 import '../models/ai.dart';
+import '../models/exercise.dart';
 import '../models/models.dart';
+import 'seed_exercises.dart';
+import 'seed_plans.dart';
 import 'seed_recipes.dart';
 
 /// 本地数据仓库：内存中维护全部实体，写入 SharedPreferences。
@@ -24,6 +27,9 @@ class AppRepository extends ChangeNotifier {
   static const String _kWater = 'xy.water';
   static const String _kSeedVersion = 'xy.seedVersion';
   static const String _kAiConfig = 'xy.ai';
+  static const String _kCustomPlans = 'xy.customPlans';
+  static const String _kExerciseFavorites = 'xy.exerciseFavorites';
+  static const String _kExercisePlan = 'xy.exercisePlan';
 
   static const List<String> _mealOrder = [
     'breakfast',
@@ -39,6 +45,9 @@ class AppRepository extends ChangeNotifier {
   final List<Recipe> _recipes = [];
   final List<MealEntry> _entries = [];
   final List<WaterLog> _water = [];
+  final List<DietPlan> _customPlans = [];
+  final List<ExercisePlanEntry> _exerciseEntries = [];
+  final Set<String> _favoriteExercises = <String>{};
   AiConfig _aiConfig = const AiConfig();
 
   bool _loaded = false;
@@ -66,6 +75,44 @@ class AppRepository extends ChangeNotifier {
 
   List<WaterLog> get waterLogs => List<WaterLog>.unmodifiable(_water);
 
+  /// 内置方案在前，用户自定义方案按创建顺序排在后面。
+  List<DietPlan> get dietPlans =>
+      List<DietPlan>.unmodifiable([...seedPlans, ..._customPlans]);
+
+  List<DietPlan> get customDietPlans =>
+      List<DietPlan>.unmodifiable(_customPlans);
+
+  DietPlan? dietPlanById(String id) {
+    for (final plan in _customPlans) {
+      if (plan.id == id) return plan;
+    }
+    return planById(id);
+  }
+
+  bool isDietPlanCustom(String id) => _customPlans.any((plan) => plan.id == id);
+
+  List<ExerciseVideo> get exercises =>
+      List<ExerciseVideo>.unmodifiable(seedExercises);
+
+  List<ExercisePlanEntry> get exercisePlanEntries =>
+      List<ExercisePlanEntry>.unmodifiable(_exerciseEntries);
+
+  Set<String> get favoriteExerciseIds =>
+      Set<String>.unmodifiable(_favoriteExercises);
+
+  bool isExerciseFavorite(String id) => _favoriteExercises.contains(id);
+
+  ExerciseVideo? exerciseById(String id) {
+    for (final video in seedExercises) {
+      if (video.id == id) return video;
+    }
+    return null;
+  }
+
+  List<ExerciseVideo> get favoriteExercises => List<ExerciseVideo>.unmodifiable(
+    seedExercises.where((video) => _favoriteExercises.contains(video.id)),
+  );
+
   Future<void> load() async {
     _prefs ??= await SharedPreferences.getInstance();
     try {
@@ -88,6 +135,17 @@ class AppRepository extends ChangeNotifier {
       _water
         ..clear()
         ..addAll(_decodeList(_kWater, WaterLog.fromJson));
+      _customPlans
+        ..clear()
+        ..addAll(_decodeList(_kCustomPlans, DietPlan.fromJson));
+      _exerciseEntries
+        ..clear()
+        ..addAll(_decodeList(_kExercisePlan, ExercisePlanEntry.fromJson));
+      _favoriteExercises
+        ..clear()
+        ..addAll(
+          _prefs!.getStringList(_kExerciseFavorites) ?? const <String>[],
+        );
       final aiRaw = _prefs!.getString(_kAiConfig);
       if (aiRaw != null && aiRaw.isNotEmpty) {
         final decoded = jsonDecode(aiRaw);
@@ -173,6 +231,27 @@ class AppRepository extends ChangeNotifier {
     );
   }
 
+  Future<void> _saveCustomPlans() async {
+    await _prefs?.setString(
+      _kCustomPlans,
+      jsonEncode(_customPlans.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  Future<void> _saveExercisePlan() async {
+    await _prefs?.setString(
+      _kExercisePlan,
+      jsonEncode(_exerciseEntries.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  Future<void> _saveExerciseFavorites() async {
+    await _prefs?.setStringList(
+      _kExerciseFavorites,
+      _favoriteExercises.toList(growable: false),
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // 资料
   // ---------------------------------------------------------------------------
@@ -204,7 +283,8 @@ class AppRepository extends ChangeNotifier {
     return _sortedWeights().last;
   }
 
-  double get currentWeightKg => latestWeight?.weightKg ?? _profile.startWeightKg;
+  double get currentWeightKg =>
+      latestWeight?.weightKg ?? _profile.startWeightKg;
 
   WeightRecord? lastRecordOnDate(String date) {
     WeightRecord? result;
@@ -285,8 +365,9 @@ class AppRepository extends ChangeNotifier {
   Future<void> toggleFavorite(String id) async {
     final index = _recipes.indexWhere((r) => r.id == id);
     if (index < 0) return;
-    _recipes[index] = _recipes[index]
-        .copyWith(isFavorite: !_recipes[index].isFavorite);
+    _recipes[index] = _recipes[index].copyWith(
+      isFavorite: !_recipes[index].isFavorite,
+    );
     await _saveRecipes();
     notifyListeners();
   }
@@ -298,12 +379,40 @@ class AppRepository extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // 长期食谱方案
+  // ---------------------------------------------------------------------------
+
+  Future<void> addDietPlan(DietPlan plan) async {
+    _customPlans.add(plan.copyWith(isCustom: true));
+    await _saveCustomPlans();
+    notifyListeners();
+  }
+
+  Future<void> updateDietPlan(DietPlan plan) async {
+    final index = _customPlans.indexWhere((item) => item.id == plan.id);
+    if (index < 0) return;
+    _customPlans[index] = plan.copyWith(isCustom: true);
+    await _saveCustomPlans();
+    notifyListeners();
+  }
+
+  Future<void> deleteDietPlan(String id) async {
+    final before = _customPlans.length;
+    _customPlans.removeWhere((plan) => plan.id == id);
+    if (_customPlans.length == before) return;
+    await _saveCustomPlans();
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
   // 饮食记录
   // ---------------------------------------------------------------------------
 
   List<MealEntry> entriesFor(String date, {String? mealType}) {
     final result = _entries
-        .where((e) => e.date == date && (mealType == null || e.mealType == mealType))
+        .where(
+          (e) => e.date == date && (mealType == null || e.mealType == mealType),
+        )
         .toList();
     result.sort((a, b) {
       final orderA = _mealOrder.indexOf(a.mealType);
@@ -315,9 +424,9 @@ class AppRepository extends ChangeNotifier {
     return result;
   }
 
-  int consumedKcalFor(String date) => entriesFor(date)
-      .where((e) => e.isCompleted)
-      .fold(0, (sum, e) => sum + e.calories);
+  int consumedKcalFor(String date) => entriesFor(
+    date,
+  ).where((e) => e.isCompleted).fold(0, (sum, e) => sum + e.calories);
 
   int plannedKcalFor(String date) =>
       entriesFor(date).fold(0, (sum, e) => sum + e.calories);
@@ -412,6 +521,58 @@ class AppRepository extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // 运动
+  // ---------------------------------------------------------------------------
+
+  List<ExercisePlanEntry> exerciseEntriesFor(String date) {
+    final result = _exerciseEntries
+        .where((entry) => entry.date == date)
+        .toList();
+    result.sort((a, b) {
+      final timeA = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final timeB = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return timeA.compareTo(timeB);
+    });
+    return result;
+  }
+
+  bool hasExerciseOnDate(String exerciseId, String date) => _exerciseEntries
+      .any((entry) => entry.exerciseId == exerciseId && entry.date == date);
+
+  Future<void> addExerciseEntry(ExercisePlanEntry entry) async {
+    _exerciseEntries.add(entry);
+    await _saveExercisePlan();
+    notifyListeners();
+  }
+
+  Future<void> setExerciseCompleted(String id, bool completed) async {
+    final index = _exerciseEntries.indexWhere((entry) => entry.id == id);
+    if (index < 0) return;
+    _exerciseEntries[index] = _exerciseEntries[index].copyWith(
+      completed: completed,
+      completedAt: completed ? DateTime.now() : null,
+    );
+    await _saveExercisePlan();
+    notifyListeners();
+  }
+
+  Future<void> deleteExerciseEntry(String id) async {
+    final before = _exerciseEntries.length;
+    _exerciseEntries.removeWhere((entry) => entry.id == id);
+    if (_exerciseEntries.length == before) return;
+    await _saveExercisePlan();
+    notifyListeners();
+  }
+
+  Future<void> toggleExerciseFavorite(String id) async {
+    if (!_favoriteExercises.remove(id)) {
+      _favoriteExercises.add(id);
+    }
+    await _saveExerciseFavorites();
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
   // 聚合
   // ---------------------------------------------------------------------------
 
@@ -433,10 +594,8 @@ class AppRepository extends ChangeNotifier {
     return count;
   }
 
-  CaloriePlan get caloriePlan => calculateCaloriePlan(
-        profile: _profile,
-        currentWeightKg: currentWeightKg,
-      );
+  CaloriePlan get caloriePlan =>
+      calculateCaloriePlan(profile: _profile, currentWeightKg: currentWeightKg);
 
   int get dailyBudget => caloriePlan.budget;
 
@@ -483,9 +642,7 @@ class AppRepository extends ChangeNotifier {
       plannedKcal: entries.fold(0, (sum, e) => sum + e.calories),
       completedCount: completed.length,
       totalCount: entries.length,
-      meals: {
-        for (final type in _mealOrder) type: progress(type),
-      },
+      meals: {for (final type in _mealOrder) type: progress(type)},
     );
   }
 
@@ -538,6 +695,9 @@ class AppRepository extends ChangeNotifier {
       'recipes': _recipes.map((e) => e.toJson()).toList(),
       'mealEntries': _entries.map((e) => e.toJson()).toList(),
       'waterLogs': _water.map((e) => e.toJson()).toList(),
+      'customDietPlans': _customPlans.map((e) => e.toJson()).toList(),
+      'exercisePlan': _exerciseEntries.map((e) => e.toJson()).toList(),
+      'exerciseFavorites': _favoriteExercises.toList(growable: false),
     });
   }
 
@@ -566,9 +726,7 @@ class AppRepository extends ChangeNotifier {
           entry.name,
           entry.calories,
           entry.status,
-          entry.completedAt == null
-              ? ''
-              : entry.completedAt!.toIso8601String(),
+          entry.completedAt == null ? '' : entry.completedAt!.toIso8601String(),
           entry.note ?? '',
         ],
     ];
@@ -580,11 +738,7 @@ class AppRepository extends ChangeNotifier {
     final rows = <List<Object?>>[
       ['日期', '时间', '水量(ml)'],
       for (final log in _water)
-        [
-          log.date,
-          AppDate.timeLabel(log.recordedAt),
-          log.amountMl,
-        ],
+        [log.date, AppDate.timeLabel(log.recordedAt), log.amountMl],
     ];
     rows.sort((a, b) {
       final byDate = '${a[0]}'.compareTo('${b[0]}');
@@ -614,9 +768,11 @@ class AppRepository extends ChangeNotifier {
     _weights.clear();
     _entries.clear();
     _water.clear();
+    _exerciseEntries.clear();
     await _saveWeights();
     await _saveEntries();
     await _saveWater();
+    await _saveExercisePlan();
     notifyListeners();
   }
 
@@ -625,6 +781,9 @@ class AppRepository extends ChangeNotifier {
     _entries.clear();
     _water.clear();
     _recipes.clear();
+    _customPlans.clear();
+    _exerciseEntries.clear();
+    _favoriteExercises.clear();
     _profile = const Profile();
     await _prefs?.clear();
     await _prefs?.setInt(_kSeedVersion, 0);
