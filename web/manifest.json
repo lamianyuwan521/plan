@@ -1,11 +1,11 @@
 {
-    "name": "iOS Demo",
-    "short_name": "iOS Demo",
+    "name": "小一二减肥记",
+    "short_name": "小一二减肥记",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FBF9F5",
+    "theme_color": "#4FAE7F",
+    "description": "小一二减肥记：日历化的减重记录 App",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
