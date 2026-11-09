@@ -137,8 +137,8 @@ class _PlanEditPageState extends State<PlanEditPage> {
     final title = _isEditing
         ? '编辑长期食谱'
         : widget.saveAsCopy
-        ? '复制为自定义方案'
-        : '新建长期食谱';
+            ? '复制为自定义方案'
+            : '新建长期食谱';
 
     return Scaffold(
       appBar: AppBar(
@@ -433,7 +433,8 @@ class _DayDraft {
     required this.note,
     required this.mealName,
     required this.mealKcal,
-  });
+    Map<String, PlanMeal>? kept,
+  }) : kept = kept ?? <String, PlanMeal>{};
 
   factory _DayDraft.empty() {
     return _DayDraft(
@@ -461,11 +462,11 @@ class _DayDraft {
       mealKcal: {
         for (final type in mainMealTypes)
           type: TextEditingController(
-            text: day.mealOf(type) == null
-                ? ''
-                : '${day.mealOf(type)!.calories}',
+            text:
+                day.mealOf(type) == null ? '' : '${day.mealOf(type)!.calories}',
           ),
       },
+      kept: {for (final meal in day.meals) meal.mealType: meal},
     );
   }
 
@@ -473,6 +474,7 @@ class _DayDraft {
   final TextEditingController note;
   final Map<String, TextEditingController> mealName;
   final Map<String, TextEditingController> mealKcal;
+  final Map<String, PlanMeal> kept;
 
   double? get weightValue {
     final value = double.tryParse(weight.text.trim());
@@ -490,7 +492,25 @@ class _DayDraft {
       final name = mealName[type]!.text.trim();
       if (name.isEmpty) continue;
       final kcal = int.tryParse(mealKcal[type]!.text.trim()) ?? 0;
-      meals.add(PlanMeal(mealType: type, name: name, calories: kcal));
+      final source = kept[type];
+      if (source != null && source.name == name) {
+        meals.add(
+          PlanMeal(
+            mealType: type,
+            name: name,
+            calories: kcal,
+            method: source.method,
+            ingredients: source.ingredients,
+          ),
+        );
+      } else {
+        meals.add(PlanMeal(mealType: type, name: name, calories: kcal));
+      }
+    }
+    for (final meal in kept.values) {
+      if (mainMealTypes.contains(meal.mealType)) continue;
+      if (meal.name.trim().isEmpty) continue;
+      meals.add(meal);
     }
     return PlanDay(
       meals: meals,
@@ -511,6 +531,7 @@ class _DayDraft {
         for (final type in mainMealTypes)
           type: TextEditingController(text: mealKcal[type]!.text),
       },
+      kept: Map<String, PlanMeal>.of(kept),
     );
   }
 

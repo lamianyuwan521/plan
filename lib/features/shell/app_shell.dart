@@ -6,13 +6,23 @@ import '../../data/app_repository.dart';
 import '../ai/ai_page.dart';
 import '../exercise/exercise_page.dart';
 import '../gallery/gallery_page.dart';
+import '../recipes/basket_page.dart';
 import '../recipes/recipes_page.dart';
 import '../settings/settings_page.dart';
 import '../today/today_page.dart';
 import '../water/water_page.dart';
 import '../weight/weight_page.dart';
 
-enum ShellSection { today, recipes, exercise, weight, water, gallery, ai }
+enum ShellSection {
+  today,
+  recipes,
+  basket,
+  exercise,
+  weight,
+  water,
+  gallery,
+  ai
+}
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -30,9 +40,11 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     final profile = context.read<AppRepository>().profile;
-    _section = profile.startPage == 'recipes'
-        ? ShellSection.recipes
-        : ShellSection.today;
+    _section = switch (profile.startPage) {
+      'recipes' => ShellSection.recipes,
+      'basket' => ShellSection.basket,
+      _ => ShellSection.today,
+    };
   }
 
   void _openSettings() {
@@ -64,8 +76,7 @@ class _AppShellState extends State<AppShell> {
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 600;
         final isWide = constraints.maxWidth >= 1024;
-        final expanded =
-            _expandedOverride ??
+        final expanded = _expandedOverride ??
             (isWide ? repository.profile.sidebarExpanded : false);
 
         final pages = <Widget>[
@@ -75,6 +86,12 @@ class _AppShellState extends State<AppShell> {
             onOpenExercise: () => _select(ShellSection.exercise),
           ),
           const RecipesPage(),
+          BasketPage(
+            onOpenPlans: () {
+              RecipesPage.openPlans();
+              _select(ShellSection.recipes);
+            },
+          ),
           const ExercisePage(),
           const WeightPage(),
           const WaterPage(),
@@ -235,9 +252,8 @@ class AppSidebar extends StatelessWidget {
     return Material(
       color: scheme.surface,
       child: Column(
-        crossAxisAlignment: expanded
-            ? CrossAxisAlignment.stretch
-            : CrossAxisAlignment.center,
+        crossAxisAlignment:
+            expanded ? CrossAxisAlignment.stretch : CrossAxisAlignment.center,
         children: [
           if (expanded)
             Padding(
@@ -305,6 +321,13 @@ class AppSidebar extends StatelessWidget {
             expanded: expanded,
             selected: selected == ShellSection.recipes,
             onTap: () => onSelect(ShellSection.recipes),
+          ),
+          _SidebarItem(
+            icon: Icons.shopping_basket_outlined,
+            label: '菜篮子',
+            expanded: expanded,
+            selected: selected == ShellSection.basket,
+            onTap: () => onSelect(ShellSection.basket),
           ),
           _SidebarItem(
             icon: Icons.fitness_center,
@@ -396,9 +419,8 @@ class _SidebarItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        mainAxisAlignment: expanded
-            ? MainAxisAlignment.start
-            : MainAxisAlignment.center,
+        mainAxisAlignment:
+            expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
         children: [
           Icon(icon, size: 22, color: foreground),
           if (expanded) ...[

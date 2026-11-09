@@ -299,6 +299,8 @@ class _PlanDayCard extends StatelessWidget {
           const SizedBox(height: 8),
           for (final mealType in mainMealTypes)
             _PlanMealRow(mealType: mealType, meal: day.mealOf(mealType)),
+          if (day.mealOf('snack') != null)
+            _PlanMealRow(mealType: 'snack', meal: day.mealOf('snack')),
         ],
       ),
     );
@@ -315,6 +317,7 @@ class _PlanMealRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
+    final current = meal;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -331,18 +334,44 @@ class _PlanMealRow extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(
-              meal?.name ?? '未安排',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                height: 1.35,
-                color: meal == null ? muted.withValues(alpha: 0.7) : null,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  current?.name ?? '未安排',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    height: 1.35,
+                    color:
+                        current == null ? muted.withValues(alpha: 0.7) : null,
+                  ),
+                ),
+                if (current != null && current.ingredients.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '用量：${current.ingredients.map((item) => item.detail).join('、')}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      height: 1.35,
+                      color: muted,
+                    ),
+                  ),
+                ],
+                if (current != null && current.method.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    current.method,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      height: 1.35,
+                      color: muted,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          if (meal != null) ...[
+          if (current != null) ...[
             const SizedBox(width: 10),
             Text(
-              '${meal!.calories} kcal',
+              '${current.calories} kcal',
               style: theme.textTheme.labelSmall?.copyWith(color: muted),
             ),
           ],
@@ -440,9 +469,8 @@ class _AddPlanToCalendarSheetState extends State<_AddPlanToCalendarSheet> {
       final day = _plan.days[offset];
       final orders = <String, int>{
         for (final meal in day.meals)
-          meal.mealType: repository
-              .entriesFor(dateKey, mealType: meal.mealType)
-              .length,
+          meal.mealType:
+              repository.entriesFor(dateKey, mealType: meal.mealType).length,
       };
       for (final meal in day.meals) {
         final id = repository.newId();

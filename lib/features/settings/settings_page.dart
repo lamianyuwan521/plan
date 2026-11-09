@@ -103,7 +103,11 @@ class SettingsPage extends StatelessWidget {
                 title: '启动页',
                 subtitle: '下次打开 App 时生效',
                 value: profile.startPage,
-                options: const [('today', '今日'), ('recipes', '食谱')],
+                options: const [
+                  ('today', '今日'),
+                  ('recipes', '食谱'),
+                  ('basket', '菜篮子'),
+                ],
                 onChanged: (value) => repository.updateProfile(
                   profile.copyWith(startPage: value),
                 ),

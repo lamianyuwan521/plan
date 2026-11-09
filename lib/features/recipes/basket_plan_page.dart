@@ -9,10 +9,23 @@ import '../../models/models.dart';
 import '../../services/ai_service.dart';
 import '../../services/basket_planner.dart';
 
+String _dayCalorieLabel(int calories, int target) {
+  final delta = calories - target;
+  final sign = delta > 0 ? '+' : '';
+  return '合计 $calories kcal · 与目标差 $sign$delta';
+}
+
 class BasketPlanPage extends StatefulWidget {
-  const BasketPlanPage({super.key, required this.calorieCap});
+  const BasketPlanPage({
+    super.key,
+    required this.calorieCap,
+    required this.dayCount,
+    this.note = '',
+  });
 
   final int calorieCap;
+  final int dayCount;
+  final String note;
 
   @override
   State<BasketPlanPage> createState() => _BasketPlanPageState();
@@ -44,10 +57,20 @@ class _BasketPlanPageState extends State<BasketPlanPage> {
   Future<void> _generate() async {
     final repository = context.read<AppRepository>();
     final items = repository.basketItems;
-    final local = buildLocalBasketPlan(items, widget.calorieCap);
+    final local = buildLocalBasketPlan(
+      items,
+      widget.calorieCap,
+      dayCount: widget.dayCount,
+      note: widget.note,
+    );
     final config = repository.aiConfig;
     if (!config.isConfigured) {
-      _apply(local, '还没有配置 AI，这份是按余量直接排的。配置后可以让 AI 写菜名，并补充要买的食材。');
+      _apply(
+        local,
+        widget.note.trim().isEmpty
+            ? '还没有配置 AI，这份是按菜篮子和每天热量直接排的。配置后可以按备注把做法写得更具体。'
+            : '还没有配置 AI，备注还没写进做法。这份先按热量和菜篮子排好了。',
+      );
       return;
     }
 
@@ -60,14 +83,15 @@ class _BasketPlanPageState extends State<BasketPlanPage> {
           const AiMessage(
             role: 'system',
             content:
-                '你只输出 JSON，不输出解释。热量是估算。不推荐极端节食，也不要编造菜篮子里没有、shopping 里也没写的大量食材。',
+                '你只输出 JSON，不输出解释。热量按生重估算。每一餐都要有做法、用量和生重。每天合计与目标热量相差不能大于 100 kcal。没有备注时按营养均衡来排。不推荐极端节食，也不要编造菜篮子里没有、shopping 里也没写的大量食材。',
           ),
           AiMessage(
             role: 'user',
             content: buildBasketPlanPrompt(
               items: items,
               calorieCap: widget.calorieCap,
-              supportedDays: local.supportedDays,
+              dayCount: widget.dayCount,
+              note: widget.note,
             ),
           ),
         ],
@@ -77,26 +101,21 @@ class _BasketPlanPageState extends State<BasketPlanPage> {
         raw,
         items: items,
         calorieCap: widget.calorieCap,
-        supportedDays: local.supportedDays,
+        dayCount: widget.dayCount,
+        note: widget.note,
         fallbackSummary: local.summary,
       );
       if (parsed == null) {
-        _apply(local, 'AI 没有给出能用的食谱，已改按余量直接排列。');
+        _apply(local, 'AI 没有给出能用的食谱，已改按菜篮子和热量要求直接排列。');
         return;
       }
-      final shopping = local.supportedDays <= 0 && parsed.shopping.isEmpty
-          ? local.shopping
-          : parsed.shopping;
-      _apply(
-        parsed.copyWith(shopping: shopping, supportedDays: local.supportedDays),
-        null,
-      );
+      _apply(parsed.copyWith(supportedDays: local.supportedDays), null);
     } on AiException catch (error) {
       if (!mounted) return;
-      _apply(local, 'AI 暂时不可用（${error.message}），已改按余量直接排列。');
+      _apply(local, 'AI 暂时不可用（${error.message}），已改按菜篮子和热量要求直接排列。');
     } catch (error) {
       if (!mounted) return;
-      _apply(local, '生成时出了点问题，已改按余量直接排列。');
+      _apply(local, '生成时出了点问题，已改按菜篮子和热量要求直接排列。');
     }
   }
 
@@ -153,13 +172,13 @@ class _BasketPlanPageState extends State<BasketPlanPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('菜篮子食谱')),
       body: _loading || draft == null
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 12),
-                  Text('正在按余量排食谱'),
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 12),
+                  Text('正在排 ${widget.dayCount} 天食谱'),
                 ],
               ),
             )
@@ -185,9 +204,7 @@ class _BasketPlanPageState extends State<BasketPlanPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              draft.supportedDays <= 0
-                                  ? '凑不齐完整的一天'
-                                  : '大约 ${draft.supportedDays} 天',
+                              '${draft.days.length} 天 · 每天 ${draft.calorieCap} kcal',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
                               ),
@@ -201,7 +218,7 @@ class _BasketPlanPageState extends State<BasketPlanPage> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '每天不超过 ${draft.calorieCap} kcal。热量为估算，不适合长期极低热量。',
+                              '每天合计与 ${draft.calorieCap} kcal 相差不超过 100 kcal。热量按生重估算，低于 1000 kcal 只适合短时间。',
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
@@ -231,11 +248,9 @@ class _BasketPlanPageState extends State<BasketPlanPage> {
                           ),
                       ],
                       const SizedBox(height: 4),
-                      for (
-                        var index = 0;
-                        index < draft.days.length;
-                        index++
-                      ) ...[
+                      for (var index = 0;
+                          index < draft.days.length;
+                          index++) ...[
                         const SizedBox(height: 8),
                         Text(
                           '第 ${index + 1} 天',
@@ -246,37 +261,69 @@ class _BasketPlanPageState extends State<BasketPlanPage> {
                         const SizedBox(height: 8),
                         SectionCard(
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              for (final meal in draft.days[index].meals)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 6,
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      SizedBox(
-                                        width: 44,
-                                        child: Text(
-                                          mealLabel(meal.mealType),
-                                          style: theme.textTheme.labelLarge
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w700,
-                                              ),
+                              for (final meal in draft.days[index].meals) ...[
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(
+                                      width: 44,
+                                      child: Text(
+                                        mealLabel(meal.mealType),
+                                        style: theme.textTheme.labelLarge
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                      Expanded(child: Text(meal.name)),
-                                      const SizedBox(width: 8),
-                                      Text('${meal.calories}'),
-                                    ],
-                                  ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        meal.name,
+                                        style: theme.textTheme.titleSmall
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${meal.calories} kcal',
+                                      style:
+                                          theme.textTheme.labelLarge?.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              const Divider(height: 16),
+                                if (meal.ingredients.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '用量：${meal.ingredients.map((item) => item.detail).join('、')}',
+                                    style: theme.textTheme.bodyMedium
+                                        ?.copyWith(height: 1.4),
+                                  ),
+                                ],
+                                if (meal.method.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '做法：${meal.method}',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      height: 1.45,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 12),
+                              ],
+                              const Divider(height: 8),
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: Text(
-                                  '合计 ${draft.days[index].calories} kcal',
+                                  _dayCalorieLabel(
+                                    draft.days[index].calories,
+                                    draft.calorieCap,
+                                  ),
                                   style: theme.textTheme.labelLarge?.copyWith(
                                     fontWeight: FontWeight.w800,
                                   ),

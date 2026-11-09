@@ -6,7 +6,6 @@ import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
 import '../../data/food_catalog.dart';
 import '../../models/basket.dart';
-import '../../services/basket_planner.dart';
 import 'basket_plan_page.dart';
 
 class BasketView extends StatefulWidget {
@@ -19,29 +18,6 @@ class BasketView extends StatefulWidget {
 }
 
 class _BasketViewState extends State<BasketView> {
-  final _cap = TextEditingController();
-  var _capReady = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_capReady) return;
-    _cap.text = '${context.read<AppRepository>().dailyBudget}';
-    _capReady = true;
-  }
-
-  @override
-  void dispose() {
-    _cap.dispose();
-    super.dispose();
-  }
-
-  int? _readCap() {
-    final value = int.tryParse(_cap.text.trim());
-    if (value == null || value < 500 || value > 4000) return null;
-    return value;
-  }
-
   Future<void> _openEditor({BasketItem? item}) {
     return showModalBottomSheet<void>(
       context: context,
@@ -68,13 +44,21 @@ class _BasketViewState extends State<BasketView> {
       showAppSnackBar(context, '先记下家里有的食材');
       return;
     }
-    final cap = _readCap();
-    if (cap == null) {
-      showAppSnackBar(context, '一天的热量请填 500–4000 kcal');
-      return;
-    }
+    final request = await showDialog<_PlanRequest>(
+      context: context,
+      builder: (_) => _GenerateDialog(
+        initialCalories: context.read<AppRepository>().dailyBudget,
+      ),
+    );
+    if (request == null || !mounted) return;
     final added = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(builder: (_) => BasketPlanPage(calorieCap: cap)),
+      MaterialPageRoute<bool>(
+        builder: (_) => BasketPlanPage(
+          calorieCap: request.calories,
+          dayCount: request.days,
+          note: request.note,
+        ),
+      ),
     );
     if (added != true || !mounted) return;
     showAppSnackBar(
@@ -90,8 +74,6 @@ class _BasketViewState extends State<BasketView> {
     final repository = context.watch<AppRepository>();
     final theme = Theme.of(context);
     final items = repository.basketItems;
-    final cap = _readCap() ?? repository.dailyBudget;
-    final preview = items.isEmpty ? null : buildLocalBasketPlan(items, cap);
     final totalKcal = items.fold<int>(
       0,
       (sum, item) => sum + item.estimatedKcal,
@@ -100,6 +82,8 @@ class _BasketViewState extends State<BasketView> {
     for (final item in items) {
       groups.putIfAbsent(item.categoryId, () => []).add(item);
     }
+    final categoryIds = groups.keys.toList()
+      ..sort((a, b) => foodCategoryOrder(a).compareTo(foodCategoryOrder(b)));
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -117,53 +101,22 @@ class _BasketViewState extends State<BasketView> {
               const SizedBox(height: 4),
               Text(
                 items.isEmpty
-                    ? '把家里的菜、水果、肉和主食记下来，再按余量生成食谱。'
-                    : preview == null
-                    ? ''
-                    : preview.supportedDays <= 0
-                    ? '按每天 $cap kcal，这些食材还凑不齐完整的一天。'
-                    : '按每天不超过 $cap kcal，大约能安排 ${preview.supportedDays} 天。',
+                    ? '按主食、蔬菜、水果、调料这些分类把家里的食材记下来，再生成食谱。'
+                    : '可以按主食、蔬菜、水果、调料来整理。生成时填写每天热量和天数，不写备注也会按营养均衡来排。',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                   height: 1.4,
                 ),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _cap,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(4),
-                      ],
-                      onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
-                        labelText: '每天热量不超过',
-                        suffixText: 'kcal',
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton.icon(
-                    onPressed: items.isEmpty ? null : () => _generate(items),
-                    icon: const Icon(Icons.auto_awesome, size: 18),
-                    label: const Text('生成食谱'),
-                  ),
-                ],
-              ),
-              if (cap < 1000) ...[
-                const SizedBox(height: 8),
-                Text(
-                  '低于 1000 kcal 只适合短时间，不适合长期执行。',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.icon(
+                  onPressed: items.isEmpty ? null : () => _generate(items),
+                  icon: const Icon(Icons.auto_awesome, size: 18),
+                  label: const Text('生成食谱'),
                 ),
-              ],
+              ),
             ],
           ),
         ),
@@ -189,20 +142,20 @@ class _BasketViewState extends State<BasketView> {
           const EmptyState(
             icon: Icons.shopping_basket_outlined,
             title: '菜篮子是空的',
-            message: '记下鸡蛋、蔬菜、水果这些余量，生成食谱时会按还剩多少来排天数。',
+            message: '记下鸡蛋、蔬菜、水果、调料和主食。生成时可以填每天热量、天数，也可以写一句要求。',
           )
         else
-          for (final entry in groups.entries) ...[
+          for (final categoryId in categoryIds) ...[
             const SizedBox(height: 8),
             Text(
-              foodCategoryName(entry.key),
+              foodCategoryName(categoryId),
               style: theme.textTheme.labelLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 6),
-            for (final item in entry.value) ...[
+            for (final item in groups[categoryId]!) ...[
               SectionCard(
                 padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
                 child: Row(
@@ -271,8 +224,7 @@ class _BasketEditorState extends State<_BasketEditor> {
     super.initState();
     final initial = widget.initial;
     final category = initial?.categoryId;
-    final knownCategory =
-        category == 'other' ||
+    final knownCategory = category == 'other' ||
         foodCategories.any((item) => item.id == category);
     _name = TextEditingController(text: initial?.name ?? '');
     _amount = TextEditingController(
@@ -460,6 +412,151 @@ class _BasketEditorState extends State<_BasketEditor> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PlanRequest {
+  const _PlanRequest({
+    required this.calories,
+    required this.days,
+    required this.note,
+  });
+
+  final int calories;
+  final int days;
+  final String note;
+}
+
+class _GenerateDialog extends StatefulWidget {
+  const _GenerateDialog({required this.initialCalories});
+
+  final int initialCalories;
+
+  @override
+  State<_GenerateDialog> createState() => _GenerateDialogState();
+}
+
+class _GenerateDialogState extends State<_GenerateDialog> {
+  late final TextEditingController _calories;
+  late final TextEditingController _days;
+  late final TextEditingController _note;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final seed = widget.initialCalories.clamp(500, 4000);
+    _calories = TextEditingController(text: '$seed');
+    _days = TextEditingController(text: '3');
+    _note = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _calories.dispose();
+    _days.dispose();
+    _note.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final calories = int.tryParse(_calories.text.trim());
+    final days = int.tryParse(_days.text.trim());
+    if (calories == null || calories < 500 || calories > 4000) {
+      setState(() => _error = '每日热量请填 500–4000 kcal');
+      return;
+    }
+    if (days == null || days < 1 || days > 14) {
+      setState(() => _error = '天数请填 1–14');
+      return;
+    }
+    final note = _note.text.trim();
+    if (note.length > 200) {
+      setState(() => _error = '备注请控制在 200 字以内');
+      return;
+    }
+    Navigator.of(context).pop(
+      _PlanRequest(calories: calories, days: days, note: note),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    return AlertDialog(
+      title: const Text('生成食谱'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _calories,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ],
+              decoration: const InputDecoration(
+                labelText: '每日热量',
+                suffixText: 'kcal',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _days,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(2),
+              ],
+              decoration: const InputDecoration(
+                labelText: '生成几天',
+                suffixText: '天',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _note,
+              minLines: 2,
+              maxLines: 4,
+              textInputAction: TextInputAction.newline,
+              decoration: const InputDecoration(
+                labelText: '其他要求',
+                hintText: '例如：少油、不吃牛肉、午餐要能带饭。可以留空',
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '不填备注时，会按菜篮子自动生成营养均衡的食谱。每天热量与目标相差不超过 100 kcal，每一餐都会写做法、用量、生重和热量。',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ],
+            if (bottom > 0) SizedBox(height: bottom),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('生成')),
+      ],
     );
   }
 }

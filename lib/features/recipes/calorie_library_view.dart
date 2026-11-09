@@ -83,12 +83,12 @@ class _CalorieLibraryViewState extends State<CalorieLibraryView> {
     final foods = query.isEmpty
         ? foodCatalog.where((food) => food.categoryId == _category).toList()
         : foodCatalog
-              .where(
-                (food) =>
-                    food.name.contains(query) ||
-                    foodCategoryName(food.categoryId).contains(query),
-              )
-              .toList();
+            .where(
+              (food) =>
+                  food.name.contains(query) ||
+                  foodCategoryName(food.categoryId).contains(query),
+            )
+            .toList();
     final basketItems = query.isEmpty
         ? (_category == basketCategoryId ? widget.basket : const <BasketItem>[])
         : widget.basket.where((item) => item.name.contains(query)).toList();
@@ -148,7 +148,7 @@ class _CalorieLibraryViewState extends State<CalorieLibraryView> {
                       ? '菜篮子还是空的'
                       : '没有找到食物',
                   message: _category == basketCategoryId && query.isEmpty
-                      ? '先到食谱页的「菜篮子」记下家里的食材。'
+                      ? '先到侧栏的「菜篮子」记下家里的食材。'
                       : '换个分类，或直接搜索名称。',
                 )
               : ListView(

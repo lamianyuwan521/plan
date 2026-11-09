@@ -65,7 +65,7 @@ class Profile {
   final bool waterGoalManual;
   final String themeMode; // system / light / dark
   final int weekStart; // 1 = 周一, 7 = 周日
-  final String startPage; // today / recipes
+  final String startPage; // today / recipes / basket
   final bool sidebarExpanded;
   final bool onboardingDone;
 
@@ -123,25 +123,25 @@ class Profile {
   }
 
   Map<String, dynamic> toJson() => {
-    'nickname': nickname,
-    'gender': gender,
-    'birthYear': birthYear,
-    'heightCm': heightCm,
-    'activityLevel': activityLevel,
-    'weightUnit': weightUnit,
-    'startWeightKg': startWeightKg,
-    'targetWeightKg': targetWeightKg,
-    'targetDate': targetDate,
-    'weeklyRateKg': weeklyRateKg,
-    'calorieBudgetOverride': calorieBudgetOverride,
-    'waterGoalMl': waterGoalMl,
-    'waterGoalManual': waterGoalManual,
-    'themeMode': themeMode,
-    'weekStart': weekStart,
-    'startPage': startPage,
-    'sidebarExpanded': sidebarExpanded,
-    'onboardingDone': onboardingDone,
-  };
+        'nickname': nickname,
+        'gender': gender,
+        'birthYear': birthYear,
+        'heightCm': heightCm,
+        'activityLevel': activityLevel,
+        'weightUnit': weightUnit,
+        'startWeightKg': startWeightKg,
+        'targetWeightKg': targetWeightKg,
+        'targetDate': targetDate,
+        'weeklyRateKg': weeklyRateKg,
+        'calorieBudgetOverride': calorieBudgetOverride,
+        'waterGoalMl': waterGoalMl,
+        'waterGoalManual': waterGoalManual,
+        'themeMode': themeMode,
+        'weekStart': weekStart,
+        'startPage': startPage,
+        'sidebarExpanded': sidebarExpanded,
+        'onboardingDone': onboardingDone,
+      };
 
   factory Profile.fromJson(Map<String, dynamic> json) {
     return Profile(
@@ -208,13 +208,13 @@ class WeightRecord {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'date': date,
-    'recordedAt': recordedAt.toIso8601String(),
-    'weightKg': weightKg,
-    'bodyFatPct': bodyFatPct,
-    'note': note,
-  };
+        'id': id,
+        'date': date,
+        'recordedAt': recordedAt.toIso8601String(),
+        'weightKg': weightKg,
+        'bodyFatPct': bodyFatPct,
+        'note': note,
+      };
 
   factory WeightRecord.fromJson(Map<String, dynamic> json) {
     return WeightRecord(
@@ -223,9 +223,8 @@ class WeightRecord {
       recordedAt:
           DateTime.tryParse(_asString(json['recordedAt'])) ?? DateTime.now(),
       weightKg: _asDouble(json['weightKg']),
-      bodyFatPct: json['bodyFatPct'] == null
-          ? null
-          : _asDouble(json['bodyFatPct']),
+      bodyFatPct:
+          json['bodyFatPct'] == null ? null : _asDouble(json['bodyFatPct']),
       note: json['note'] as String?,
     );
   }
@@ -245,11 +244,11 @@ class Ingredient {
   final int? kcal;
 
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'amount': amount,
-    'unit': unit,
-    'kcal': kcal,
-  };
+        'name': name,
+        'amount': amount,
+        'unit': unit,
+        'kcal': kcal,
+      };
 
   factory Ingredient.fromJson(Map<String, dynamic> json) {
     return Ingredient(
@@ -308,16 +307,16 @@ class Recipe {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'mealType': mealType,
-    'calories': calories,
-    'ingredients': ingredients.map((e) => e.toJson()).toList(),
-    'steps': steps,
-    'tags': tags,
-    'isBuiltin': isBuiltin,
-    'isFavorite': isFavorite,
-  };
+        'id': id,
+        'name': name,
+        'mealType': mealType,
+        'calories': calories,
+        'ingredients': ingredients.map((e) => e.toJson()).toList(),
+        'steps': steps,
+        'tags': tags,
+        'isBuiltin': isBuiltin,
+        'isFavorite': isFavorite,
+      };
 
   factory Recipe.fromJson(Map<String, dynamic> json) {
     final rawIngredients = json['ingredients'];
@@ -388,9 +387,8 @@ class MealEntry {
       id: id,
       date: date ?? this.date,
       mealType: mealType ?? this.mealType,
-      recipeId: identical(recipeId, _unset)
-          ? this.recipeId
-          : recipeId as String?,
+      recipeId:
+          identical(recipeId, _unset) ? this.recipeId : recipeId as String?,
       name: name ?? this.name,
       calories: calories ?? this.calories,
       portion: portion ?? this.portion,
@@ -404,18 +402,18 @@ class MealEntry {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'date': date,
-    'mealType': mealType,
-    'recipeId': recipeId,
-    'name': name,
-    'calories': calories,
-    'portion': portion,
-    'status': status,
-    'completedAt': completedAt?.toIso8601String(),
-    'note': note,
-    'sortOrder': sortOrder,
-  };
+        'id': id,
+        'date': date,
+        'mealType': mealType,
+        'recipeId': recipeId,
+        'name': name,
+        'calories': calories,
+        'portion': portion,
+        'status': status,
+        'completedAt': completedAt?.toIso8601String(),
+        'note': note,
+        'sortOrder': sortOrder,
+      };
 
   factory MealEntry.fromJson(Map<String, dynamic> json) {
     return MealEntry(
@@ -450,11 +448,11 @@ class WaterLog {
   final DateTime recordedAt;
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'date': date,
-    'amountMl': amountMl,
-    'recordedAt': recordedAt.toIso8601String(),
-  };
+        'id': id,
+        'date': date,
+        'amountMl': amountMl,
+        'recordedAt': recordedAt.toIso8601String(),
+      };
 
   factory WaterLog.fromJson(Map<String, dynamic> json) {
     return WaterLog(
@@ -467,29 +465,105 @@ class WaterLog {
   }
 }
 
+/// 一餐里的一份用量。`rawGrams` 是生重，按克计。
+class PlanIngredient {
+  const PlanIngredient({
+    required this.name,
+    required this.amount,
+    required this.unit,
+    this.rawGrams,
+  });
+
+  final String name;
+  final double amount;
+  final String unit;
+  final double? rawGrams;
+
+  String get detail {
+    final qty = '${_formatQty(amount)}$unit';
+    final raw = rawGrams;
+    if (raw == null || raw <= 0) return '$name $qty';
+    final rawText = _formatQty(raw);
+    if ((unit == 'g' || unit == 'ml') && (raw - amount).abs() < 0.6) {
+      return '$name $qty（生重）';
+    }
+    return '$name $qty（生重 $rawText g）';
+  }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'amount': amount,
+        'unit': unit,
+        'rawGrams': rawGrams,
+      };
+
+  factory PlanIngredient.fromJson(Map<String, dynamic> json) {
+    final unit = _asString(json['unit'], 'g');
+    final amount = _asDouble(json['amount']);
+    final raw = json['rawGrams'] == null ? null : _asDouble(json['rawGrams']);
+    return PlanIngredient(
+      name: _asString(json['name']),
+      amount: amount,
+      unit: unit.isEmpty ? 'g' : unit,
+      rawGrams: raw != null && raw > 0 ? raw : (unit == 'g' ? amount : null),
+    );
+  }
+}
+
+String _formatQty(double amount) {
+  if (amount.isNaN || amount.isInfinite) return '0';
+  final rounded = (amount * 10).round() / 10;
+  if ((rounded - rounded.round()).abs() < 0.05) {
+    return rounded.round().toString();
+  }
+  return rounded.toStringAsFixed(1);
+}
+
+List<PlanIngredient> _parseIngredients(Object? raw) {
+  if (raw is! List) return const <PlanIngredient>[];
+  final list = <PlanIngredient>[];
+  for (final item in raw) {
+    if (item is! Map) continue;
+    final ingredient = PlanIngredient.fromJson(Map<String, dynamic>.from(item));
+    if (ingredient.name.trim().isEmpty || ingredient.amount <= 0) continue;
+    list.add(ingredient);
+  }
+  return list;
+}
+
 /// 长期方案里的一餐。方案是内置模板，热量为估算值。
 class PlanMeal {
   const PlanMeal({
     required this.mealType,
     required this.name,
     required this.calories,
+    this.method = '',
+    this.ingredients = const [],
   });
 
   final String mealType; // breakfast / lunch / dinner
   final String name;
   final int calories;
 
+  /// 具体做法。旧食谱没有这一项时为空。
+  final String method;
+  final List<PlanIngredient> ingredients;
+
   Map<String, dynamic> toJson() => {
-    'mealType': mealType,
-    'name': name,
-    'calories': calories,
-  };
+        'mealType': mealType,
+        'name': name,
+        'calories': calories,
+        'method': method,
+        'ingredients': ingredients.map((item) => item.toJson()).toList(),
+      };
 
   factory PlanMeal.fromJson(Map<String, dynamic> json) {
     return PlanMeal(
       mealType: _asString(json['mealType'], 'breakfast'),
       name: _asString(json['name']),
       calories: _asInt(json['calories']),
+      method: _asString(json['method']),
+      ingredients: _parseIngredients(json['ingredients']),
     );
   }
 }
@@ -513,10 +587,10 @@ class PlanDay {
   }
 
   Map<String, dynamic> toJson() => {
-    'meals': meals.map((meal) => meal.toJson()).toList(),
-    'weightJin': weightJin,
-    'note': note,
-  };
+        'meals': meals.map((meal) => meal.toJson()).toList(),
+        'weightJin': weightJin,
+        'note': note,
+      };
 
   factory PlanDay.fromJson(Map<String, dynamic> json) {
     final meals = <PlanMeal>[];
@@ -530,9 +604,8 @@ class PlanDay {
     }
     return PlanDay(
       meals: meals,
-      weightJin: json['weightJin'] == null
-          ? null
-          : _asDouble(json['weightJin']),
+      weightJin:
+          json['weightJin'] == null ? null : _asDouble(json['weightJin']),
       note: json['note'] as String?,
     );
   }
@@ -584,13 +657,13 @@ class DietPlan {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'description': description,
-    'tags': tags,
-    'days': days.map((day) => day.toJson()).toList(),
-    'isCustom': isCustom,
-  };
+        'id': id,
+        'name': name,
+        'description': description,
+        'tags': tags,
+        'days': days.map((day) => day.toJson()).toList(),
+        'isCustom': isCustom,
+      };
 
   factory DietPlan.fromJson(Map<String, dynamic> json) {
     final days = <PlanDay>[];

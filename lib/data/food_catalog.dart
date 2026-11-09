@@ -35,7 +35,7 @@ class FoodRef {
 const String basketCategoryId = 'basket';
 
 const List<FoodCategory> foodCategories = [
-  FoodCategory(id: 'grain', name: '主食谷物'),
+  FoodCategory(id: 'grain', name: '主食'),
   FoodCategory(id: 'meat', name: '肉禽'),
   FoodCategory(id: 'seafood', name: '水产'),
   FoodCategory(id: 'eggDairy', name: '蛋奶'),
@@ -46,7 +46,7 @@ const List<FoodCategory> foodCategories = [
   FoodCategory(id: 'fungus', name: '菌藻'),
   FoodCategory(id: 'drink', name: '饮品'),
   FoodCategory(id: 'snack', name: '零食轻食'),
-  FoodCategory(id: 'oil', name: '油脂调味'),
+  FoodCategory(id: 'oil', name: '调料'),
 ];
 
 const FoodCategory basketOtherCategory = FoodCategory(id: 'other', name: '其他');
@@ -145,6 +145,11 @@ const List<FoodRef> foodCatalog = [
   FoodRef(name: '花生油', categoryId: 'oil', unit: 'g', kcal: 899),
   FoodRef(name: '芝麻酱', categoryId: 'oil', unit: 'g', kcal: 615),
   FoodRef(name: '酱油', categoryId: 'oil', unit: 'ml', kcal: 63),
+  FoodRef(name: '盐', categoryId: 'oil', unit: 'g', kcal: 0),
+  FoodRef(name: '醋', categoryId: 'oil', unit: 'ml', kcal: 31),
+  FoodRef(name: '蒜', categoryId: 'oil', unit: 'g', kcal: 126),
+  FoodRef(name: '姜', categoryId: 'oil', unit: 'g', kcal: 80),
+  FoodRef(name: '蚝油', categoryId: 'oil', unit: 'g', kcal: 80),
 ];
 
 FoodRef? foodByName(String name) {
