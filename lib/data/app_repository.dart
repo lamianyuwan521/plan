@@ -6,7 +6,9 @@ import 'package:uuid/uuid.dart';
 
 import '../core/app_date.dart';
 import '../core/calculators.dart';
+import '../data/food_catalog.dart';
 import '../models/ai.dart';
+import '../models/basket.dart';
 import '../models/exercise.dart';
 import '../models/gallery.dart';
 import '../models/models.dart';
@@ -34,6 +36,7 @@ class AppRepository extends ChangeNotifier {
   static const String _kExercisePlan = 'xy.exercisePlan';
   static const String _kGalleryCategories = 'xy.galleryCategories';
   static const String _kGalleryPhotos = 'xy.galleryPhotos';
+  static const String _kBasket = 'xy.basket';
 
   static const List<String> _mealOrder = [
     'breakfast',
@@ -54,6 +57,7 @@ class AppRepository extends ChangeNotifier {
   final Set<String> _favoriteExercises = <String>{};
   final List<GalleryCategory> _galleryCategories = [];
   final List<GalleryPhoto> _galleryPhotos = [];
+  final List<BasketItem> _basket = [];
   AiConfig _aiConfig = const AiConfig();
 
   bool _loaded = false;
@@ -87,6 +91,18 @@ class AppRepository extends ChangeNotifier {
 
   List<DietPlan> get customDietPlans =>
       List<DietPlan>.unmodifiable(_customPlans);
+
+  List<BasketItem> get basketItems {
+    final list = _basket.toList();
+    list.sort((a, b) {
+      final order = foodCategoryOrder(
+        a.categoryId,
+      ).compareTo(foodCategoryOrder(b.categoryId));
+      if (order != 0) return order;
+      return a.name.compareTo(b.name);
+    });
+    return List<BasketItem>.unmodifiable(list);
+  }
 
   DietPlan? dietPlanById(String id) {
     for (final plan in _customPlans) {
@@ -186,6 +202,14 @@ class AppRepository extends ChangeNotifier {
             _kGalleryPhotos,
             GalleryPhoto.fromJson,
           ).where((photo) => photo.id.isNotEmpty),
+        );
+      _basket
+        ..clear()
+        ..addAll(
+          _decodeList(
+            _kBasket,
+            BasketItem.fromJson,
+          ).where((item) => item.id.isNotEmpty && item.name.isNotEmpty),
         );
       final aiRaw = _prefs!.getString(_kAiConfig);
       if (aiRaw != null && aiRaw.isNotEmpty) {
@@ -304,6 +328,13 @@ class AppRepository extends ChangeNotifier {
     await _prefs?.setString(
       _kGalleryPhotos,
       jsonEncode(_galleryPhotos.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  Future<void> _saveBasket() async {
+    await _prefs?.setString(
+      _kBasket,
+      jsonEncode(_basket.map((e) => e.toJson()).toList()),
     );
   }
 
@@ -456,6 +487,57 @@ class AppRepository extends ChangeNotifier {
     _customPlans.removeWhere((plan) => plan.id == id);
     if (_customPlans.length == before) return;
     await _saveCustomPlans();
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 菜篮子
+  // ---------------------------------------------------------------------------
+
+  Future<bool> addBasketItem(BasketItem item) async {
+    if (item.id.isEmpty || item.name.trim().isEmpty || item.amount <= 0) {
+      return false;
+    }
+    _basket.add(item);
+    await _saveBasket();
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> updateBasketItem(BasketItem item) async {
+    final index = _basket.indexWhere((entry) => entry.id == item.id);
+    if (index < 0) return;
+    _basket[index] = item;
+    await _saveBasket();
+    notifyListeners();
+  }
+
+  Future<void> deleteBasketItem(String id) async {
+    final before = _basket.length;
+    _basket.removeWhere((item) => item.id == id);
+    if (_basket.length == before) return;
+    await _saveBasket();
+    notifyListeners();
+  }
+
+  /// 按食谱用量扣减余量。扣完的食材会从菜篮子里移除。
+  Future<void> applyBasketUsage(List<BasketUsage> usages) async {
+    if (usages.isEmpty) return;
+    var changed = false;
+    for (final usage in usages) {
+      final index = _basket.indexWhere((item) => item.id == usage.itemId);
+      if (index < 0 || usage.amount <= 0) continue;
+      final item = _basket[index];
+      final left = item.amount - usage.amount;
+      if (left <= 0.05) {
+        _basket.removeAt(index);
+      } else {
+        _basket[index] = item.copyWith(amount: left);
+      }
+      changed = true;
+    }
+    if (!changed) return;
+    await _saveBasket();
     notifyListeners();
   }
 
@@ -869,6 +951,7 @@ class AppRepository extends ChangeNotifier {
       'exerciseFavorites': _favoriteExercises.toList(growable: false),
       'galleryCategories': _galleryCategories.map((e) => e.toJson()).toList(),
       'galleryPhotos': _galleryPhotos.map((e) => e.toJson()).toList(),
+      'basketItems': _basket.map((e) => e.toJson()).toList(),
     });
   }
 
@@ -942,12 +1025,14 @@ class AppRepository extends ChangeNotifier {
     _exerciseEntries.clear();
     _galleryCategories.clear();
     _galleryPhotos.clear();
+    _basket.clear();
     await _saveWeights();
     await _saveEntries();
     await _saveWater();
     await _saveExercisePlan();
     await _saveGalleryCategories();
     await _saveGalleryPhotos();
+    await _saveBasket();
     await clearGalleryBytes();
     notifyListeners();
   }
@@ -962,6 +1047,7 @@ class AppRepository extends ChangeNotifier {
     _favoriteExercises.clear();
     _galleryCategories.clear();
     _galleryPhotos.clear();
+    _basket.clear();
     _profile = const Profile();
     await clearGalleryBytes();
     await _prefs?.clear();

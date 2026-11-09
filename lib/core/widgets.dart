@@ -145,10 +145,7 @@ class EmptyState extends StatelessWidget {
           ],
           if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: 16),
-            FilledButton.tonal(
-              onPressed: onAction,
-              child: Text(actionLabel!),
-            ),
+            FilledButton.tonal(onPressed: onAction, child: Text(actionLabel!)),
           ],
         ],
       ),
@@ -161,8 +158,22 @@ class MascotAvatar extends StatelessWidget {
 
   final double size;
 
+  static const String asset = 'assets/brand/app_icon.png';
+
   @override
   Widget build(BuildContext context) {
+    return ClipOval(
+      child: Image.asset(
+        asset,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _fallback(),
+      ),
+    );
+  }
+
+  Widget _fallback() {
     return Container(
       width: size,
       height: size,
@@ -258,11 +269,7 @@ class _RingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..isAntiAlias = true;
 
-    canvas.drawCircle(
-      center,
-      radius,
-      strokePaint..color = trackColor,
-    );
+    canvas.drawCircle(center, radius, strokePaint..color = trackColor);
 
     final clamped = value.clamp(0.0, 1.0);
     if (clamped > 0) {
@@ -340,14 +347,16 @@ class MiniBarChart extends StatelessWidget {
                     child: Align(
                       alignment: Alignment.bottomCenter,
                       child: FractionallySizedBox(
-                        heightFactor:
-                            (values[i] / maxValue).clamp(0.04, 1.0).toDouble(),
+                        heightFactor: (values[i] / maxValue)
+                            .clamp(0.04, 1.0)
+                            .toDouble(),
                         child: Container(
                           decoration: BoxDecoration(
                             color: (highlight.length > i && highlight[i])
                                 ? (color ?? scheme.primary)
-                                : (color ?? scheme.primary)
-                                    .withValues(alpha: 0.28),
+                                : (color ?? scheme.primary).withValues(
+                                    alpha: 0.28,
+                                  ),
                             borderRadius: BorderRadius.circular(6),
                           ),
                         ),
@@ -358,8 +367,8 @@ class MiniBarChart extends StatelessWidget {
                   Text(
                     labels.length > i ? labels[i] : '',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -390,9 +399,9 @@ class TagChip extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: tint,
-              fontWeight: FontWeight.w600,
-            ),
+          color: tint,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

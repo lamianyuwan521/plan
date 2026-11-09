@@ -34,8 +34,7 @@ class SettingsPage extends StatelessWidget {
             title: '个人信息',
             children: [
               ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14),
                 leading: const Icon(Icons.person_outline),
                 title: const Text('个人资料'),
                 subtitle: Text(
@@ -51,8 +50,7 @@ class SettingsPage extends StatelessWidget {
               ),
               const Divider(indent: 14, endIndent: 14),
               ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14),
                 leading: const Icon(Icons.flag_outlined),
                 title: const Text('目标与预算'),
                 subtitle: Text(
@@ -61,9 +59,7 @@ class SettingsPage extends StatelessWidget {
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const GoalEditPage(),
-                  ),
+                  MaterialPageRoute<void>(builder: (_) => const GoalEditPage()),
                 ),
               ),
             ],
@@ -118,8 +114,7 @@ class SettingsPage extends StatelessWidget {
             title: 'AI 助手',
             children: [
               ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14),
                 leading: const Icon(Icons.auto_awesome_outlined),
                 title: const Text('接入 AI'),
                 subtitle: Text(
@@ -140,8 +135,7 @@ class SettingsPage extends StatelessWidget {
             title: '数据',
             children: [
               ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14),
                 leading: const Icon(Icons.ios_share_outlined),
                 title: const Text('导出数据'),
                 subtitle: Text(
@@ -154,8 +148,7 @@ class SettingsPage extends StatelessWidget {
               ),
               const Divider(indent: 14, endIndent: 14),
               ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14),
                 leading: Icon(
                   Icons.delete_outline,
                   color: theme.colorScheme.error,
@@ -164,7 +157,7 @@ class SettingsPage extends StatelessWidget {
                   '清空业务数据',
                   style: TextStyle(color: theme.colorScheme.error),
                 ),
-                subtitle: const Text('保留个人资料、食谱与设置'),
+                subtitle: const Text('保留个人资料、食谱、长期计划与设置'),
                 onTap: () => _clearData(context, repository),
               ),
             ],
@@ -173,9 +166,8 @@ class SettingsPage extends StatelessWidget {
             title: '关于',
             children: [
               ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14),
-                leading: const Icon(Icons.info_outline),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+                leading: const MascotAvatar(size: 28),
                 title: const Text('关于小一二减肥记'),
                 subtitle: const Text('版本 1.0.0 · 记录保存在本机'),
                 trailing: const Icon(Icons.chevron_right),
@@ -250,10 +242,7 @@ class SettingsPage extends StatelessWidget {
         mimeType: mime,
       );
       if (!context.mounted) return;
-      showAppSnackBar(
-        context,
-        path == null ? '已取消导出' : '已导出：$path',
-      );
+      showAppSnackBar(context, path == null ? '已取消导出' : '已导出：$path');
     } catch (error) {
       if (!context.mounted) return;
       showAppSnackBar(context, '导出失败：$error');
@@ -283,11 +272,15 @@ class SettingsPage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Center(child: MascotAvatar(size: 64)),
+            SizedBox(height: 12),
             Text('版本 1.0.0'),
             SizedBox(height: 10),
             Text('把今天吃了什么、喝了多少、体重有没有降，收进一张不用动脑子的日历。'),
             SizedBox(height: 12),
-            Text('数据只保存在本机，不注册。只有你使用 AI 助手并发送消息时，才会把资料摘要和对话内容发送给你自己配置的 AI 服务。建议定期在「导出数据」里做一次备份。'),
+            Text(
+              '数据只保存在本机，不注册。只有你使用 AI 助手，或用菜篮子生成食谱时，才会把相关记录发送给你自己配置的 AI 服务。建议定期在「导出数据」里做一次备份。',
+            ),
           ],
         ),
         actions: [
@@ -376,10 +369,7 @@ class _SegmentedSetting<T> extends StatelessWidget {
             showSelectedIcon: false,
             segments: [
               for (final option in options)
-                ButtonSegment<T>(
-                  value: option.$1,
-                  label: Text(option.$2),
-                ),
+                ButtonSegment<T>(value: option.$1, label: Text(option.$2)),
             ],
             selected: {value},
             onSelectionChanged: (selection) => onChanged(selection.first),
@@ -416,16 +406,12 @@ class _ClearDataDialogState extends State<_ClearDataDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '将删除全部体重、饮食、喝水记录，个人资料、食谱与设置会保留。此操作不可撤销。',
-          ),
+          const Text('将删除全部体重、饮食、喝水、运动、图集和菜篮子记录，个人资料、食谱、长期计划与设置会保留。此操作不可撤销。'),
           const SizedBox(height: 12),
           TextField(
             controller: _controller,
             onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(
-              labelText: '输入「删除」确认',
-            ),
+            decoration: const InputDecoration(labelText: '输入「删除」确认'),
           ),
         ],
       ),
@@ -438,8 +424,7 @@ class _ClearDataDialogState extends State<_ClearDataDialog> {
           style: FilledButton.styleFrom(
             backgroundColor: theme.colorScheme.error,
           ),
-          onPressed:
-              canClear ? () => Navigator.pop(context, true) : null,
+          onPressed: canClear ? () => Navigator.pop(context, true) : null,
           child: const Text('清空'),
         ),
       ],

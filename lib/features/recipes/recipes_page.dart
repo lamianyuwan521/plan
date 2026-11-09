@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/widgets.dart';
 import 'calendar_view.dart';
+import 'basket_view.dart';
 import 'plan_view.dart';
 import 'recipe_edit_page.dart';
 import 'recipe_library_view.dart';
@@ -24,17 +25,23 @@ class _RecipesPageState extends State<RecipesPage> {
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
           child: PageHeader(
             title: '食谱',
-            subtitle: '在日历里查看每天的体重、三餐和喝水',
+            subtitle: switch (_tab) {
+              0 => '在日历里查看每天的体重、三餐和喝水',
+              1 => '按餐次查找和收藏每一道食谱',
+              2 => '长期食谱和本周安排',
+              _ => '记下家里的食材，按余量生成食谱',
+            },
             actions: [
-              FilledButton.icon(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const RecipeEditPage(),
+              if (_tab == 0 || _tab == 1)
+                FilledButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const RecipeEditPage(),
+                    ),
                   ),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('添加食谱'),
                 ),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('添加食谱'),
-              ),
             ],
           ),
         ),
@@ -43,30 +50,37 @@ class _RecipesPageState extends State<RecipesPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _SegmentedTabs(
             value: _tab,
-            labels: const ['日历', '食谱库', '计划'],
+            labels: const ['日历', '食谱库', '计划', '菜篮子'],
             onChanged: (value) => setState(() => _tab = value),
           ),
         ),
         const SizedBox(height: 8),
-        Expanded(child: _RecipesBody(tab: _tab)),
+        Expanded(
+          child: _RecipesBody(
+            tab: _tab,
+            onOpenPlans: () => setState(() => _tab = 2),
+          ),
+        ),
       ],
     );
   }
 }
 
 class _RecipesBody extends StatelessWidget {
-  const _RecipesBody({required this.tab});
+  const _RecipesBody({required this.tab, this.onOpenPlans});
 
   final int tab;
+  final VoidCallback? onOpenPlans;
 
   @override
   Widget build(BuildContext context) {
     return IndexedStack(
       index: tab,
-      children: const [
-        CalendarView(),
-        RecipeLibraryView(),
-        PlanView(),
+      children: [
+        const CalendarView(),
+        const RecipeLibraryView(),
+        const PlanView(),
+        BasketView(onOpenPlans: onOpenPlans),
       ],
     );
   }

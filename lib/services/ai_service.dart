@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../core/app_date.dart';
 import '../data/app_repository.dart';
+import '../data/food_catalog.dart';
 import '../models/ai.dart';
 
 class AiException implements Exception {
@@ -28,6 +29,7 @@ class AiService {
     required AiConfig config,
     required List<AiMessage> messages,
     int maxTokens = 1600,
+    double temperature = 0.7,
     Duration timeout = const Duration(seconds: 90),
   }) async {
     if (!config.isConfigured) {
@@ -50,7 +52,7 @@ class AiService {
             body: jsonEncode({
               'model': config.model.trim(),
               'messages': [for (final message in messages) message.toJson()],
-              'temperature': 0.7,
+              'temperature': temperature,
               'max_tokens': maxTokens,
               'stream': false,
             }),
@@ -182,21 +184,96 @@ String buildCoachSystemPrompt(AppRepository repository, {DateTime? now}) {
   }
 
   final weights = repository.weightRecords;
-  if (weights.length >= 2) {
-    final latest = weights.last;
-    final previous = weights[weights.length - 2];
-    buffer.writeln(
-      '最近一次体重 ${latest.weightKg.toStringAsFixed(1)} kg（${latest.date}），'
-      '上一次 ${previous.weightKg.toStringAsFixed(1)} kg。',
-    );
+  if (weights.isEmpty) {
+    buffer.writeln('体重记录：暂无。');
+  } else {
+    final recent = weights.length > 10
+        ? weights.sublist(weights.length - 10)
+        : weights;
+    buffer.writeln('近期体重（最多 10 条，可用来分析变化）：');
+    for (final record in recent) {
+      final fat = record.bodyFatPct == null
+          ? ''
+          : '，体脂 ${record.bodyFatPct!.toStringAsFixed(1)}%';
+      buffer.writeln(
+        '- ${record.date} ${record.weightKg.toStringAsFixed(1)} kg$fat',
+      );
+    }
   }
+
+  _appendRecentHistory(buffer, repository, date);
+  _appendBasket(buffer, repository);
 
   buffer
     ..writeln()
     ..writeln('回答要求：')
     ..writeln('1. 建议要具体到食物、份量或做法，避免空泛的鼓励。')
     ..writeln('2. 不推荐极端节食、断食、代餐替代正餐、减肥药或催吐；不诊断疾病，涉及健康问题建议就医。')
-    ..writeln('3. 回答控制在 300 字以内，需要时分成不超过 4 条。')
-    ..writeln('4. 只依据上面的记录回答，不要编造用户没有提供的数据。');
+    ..writeln('3. 日常问答控制在 300 字以内；如果用户要求分析记录，可以到 500 字，并引用上面的日期和数字。')
+    ..writeln('4. 只依据上面的本机记录回答，不要编造没有出现的日期、食物或体重。');
   return buffer.toString();
+}
+
+void _appendRecentHistory(
+  StringBuffer buffer,
+  AppRepository repository,
+  DateTime date,
+) {
+  final today = AppDate.dateOnly(date);
+  buffer.writeln('近 7 天饮食、喝水与运动：');
+  var any = false;
+  for (var offset = 6; offset >= 0; offset--) {
+    final day = today.subtract(Duration(days: offset));
+    final key = AppDate.key(day);
+    final entries = repository.entriesFor(key);
+    final water = repository.waterTotalFor(key);
+    final exercises = repository.exerciseEntriesFor(key);
+    if (entries.isEmpty && water == 0 && exercises.isEmpty) continue;
+    any = true;
+    buffer.writeln(
+      '- $key：已吃 ${repository.consumedKcalFor(key)} kcal，'
+      '计划 ${repository.plannedKcalFor(key)} kcal，喝水 $water ml',
+    );
+    for (final entry in entries.take(6)) {
+      final meal = switch (entry.mealType) {
+        'breakfast' => '早餐',
+        'lunch' => '午餐',
+        'dinner' => '晚餐',
+        'snack' => '加餐',
+        _ => entry.mealType,
+      };
+      buffer.writeln(
+        '  - $meal ${entry.name} ${entry.calories} kcal'
+        '（${entry.isCompleted ? '已完成' : '计划中'}）',
+      );
+    }
+    if (entries.length > 6) {
+      buffer.writeln('  - 还有 ${entries.length - 6} 条饮食');
+    }
+    for (final exercise in exercises.take(3)) {
+      final title = repository.exerciseById(exercise.exerciseId)?.title ?? '运动';
+      buffer.writeln('  - 运动：$title（${exercise.completed ? '已完成' : '未完成'}）');
+    }
+  }
+  if (!any) {
+    buffer.writeln('- 这 7 天还没有饮食、喝水或运动记录。');
+  }
+}
+
+void _appendBasket(StringBuffer buffer, AppRepository repository) {
+  final basket = repository.basketItems;
+  if (basket.isEmpty) {
+    buffer.writeln('菜篮子：暂无。');
+    return;
+  }
+  buffer.writeln('菜篮子（家里现有食材，可据此分析能做什么）：');
+  for (final item in basket.take(24)) {
+    final kcal = item.estimatedKcal > 0 ? '，约 ${item.estimatedKcal} kcal' : '';
+    buffer.writeln(
+      '- ${item.name} ${item.amountLabel}（${foodCategoryName(item.categoryId)}$kcal）',
+    );
+  }
+  if (basket.length > 24) {
+    buffer.writeln('- 还有 ${basket.length - 24} 项');
+  }
 }

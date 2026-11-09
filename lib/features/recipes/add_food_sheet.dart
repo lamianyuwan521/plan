@@ -8,6 +8,7 @@ import '../../core/formatters.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
 import '../../models/models.dart';
+import 'calorie_library_view.dart';
 
 Future<void> showAddFoodSheet(
   BuildContext context, {
@@ -98,6 +99,49 @@ class _AddFoodSheetState extends State<AddFoodSheet> {
       );
   }
 
+  Future<void> _addNamed(String name, int calories) async {
+    if (_saving) return;
+    if (name.trim().isEmpty) {
+      showAppSnackBar(context, '给这顿饭起个名字吧');
+      return;
+    }
+    if (calories < 1 || calories > 3000) {
+      showAppSnackBar(context, '热量请填写 1–3000 kcal');
+      return;
+    }
+    final repository = context.read<AppRepository>();
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final eaten = _markEaten && !_isFuture;
+    setState(() => _saving = true);
+    await repository.addMealEntry(
+      MealEntry(
+        id: repository.newId(),
+        date: widget.date,
+        mealType: _mealType,
+        name: name.trim(),
+        calories: calories,
+        status: eaten ? 'completed' : 'planned',
+        completedAt: eaten ? DateTime.now() : null,
+        sortOrder: repository
+            .entriesFor(widget.date, mealType: _mealType)
+            .length,
+      ),
+    );
+    if (!mounted) return;
+    navigator.pop();
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            '已添加到${mealLabel(_mealType)}：${name.trim()}'
+            '${eaten ? '（已吃）' : ''}',
+          ),
+        ),
+      );
+  }
+
   Future<void> _addQuickLog() async {
     if (_saving) return;
     final name = _name.text.trim();
@@ -148,15 +192,15 @@ class _AddFoodSheetState extends State<AddFoodSheet> {
     final theme = Theme.of(context);
     final repository = context.watch<AppRepository>();
     final query = _search.text.trim();
-    final recipes = repository.recipes.where((recipe) {
-      if (query.isEmpty) return true;
-      return recipe.name.contains(query) ||
-          recipe.tags.any((tag) => tag.contains(query));
-    }).toList()
-      ..sort((a, b) {
-        if (a.isFavorite != b.isFavorite) return a.isFavorite ? -1 : 1;
-        return a.name.compareTo(b.name);
-      });
+    final recipes =
+        repository.recipes.where((recipe) {
+          if (query.isEmpty) return true;
+          return recipe.name.contains(query) ||
+              recipe.tags.any((tag) => tag.contains(query));
+        }).toList()..sort((a, b) {
+          if (a.isFavorite != b.isFavorite) return a.isFavorite ? -1 : 1;
+          return a.name.compareTo(b.name);
+        });
 
     return Padding(
       padding: EdgeInsets.only(
@@ -213,9 +257,7 @@ class _AddFoodSheetState extends State<AddFoodSheet> {
                 style: theme.textTheme.bodyMedium,
               ),
               subtitle: Text(
-                _isFuture
-                    ? '可以先安排进计划，到那天再打勾。'
-                    : '打开后直接计入今天的已吃热量。',
+                _isFuture ? '可以先安排进计划，到那天再打勾。' : '打开后直接计入今天的已吃热量。',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -229,16 +271,9 @@ class _AddFoodSheetState extends State<AddFoodSheet> {
             SegmentedButton<int>(
               showSelectedIcon: false,
               segments: const [
-                ButtonSegment(
-                  value: 0,
-                  icon: Icon(Icons.menu_book_outlined, size: 18),
-                  label: Text('食谱库'),
-                ),
-                ButtonSegment(
-                  value: 1,
-                  icon: Icon(Icons.edit_note_outlined, size: 18),
-                  label: Text('快速记录'),
-                ),
+                ButtonSegment(value: 0, label: Text('食谱')),
+                ButtonSegment(value: 1, label: Text('热量')),
+                ButtonSegment(value: 2, label: Text('手记')),
               ],
               selected: {_mode},
               onSelectionChanged: (value) =>
@@ -261,7 +296,7 @@ class _AddFoodSheetState extends State<AddFoodSheet> {
                     ? const EmptyState(
                         icon: Icons.search_off,
                         title: '没有找到相关食谱',
-                        message: '换个关键词，或切到「快速记录」直接记一笔。',
+                        message: '换个关键词，或切到「热量」「手记」直接记一笔。',
                       )
                     : ListView.separated(
                         itemCount: recipes.length,
@@ -269,8 +304,9 @@ class _AddFoodSheetState extends State<AddFoodSheet> {
                         itemBuilder: (context, index) {
                           final recipe = recipes[index];
                           return ListTile(
-                            contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 4),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                            ),
                             title: Text(
                               recipe.name,
                               maxLines: 1,
@@ -289,7 +325,8 @@ class _AddFoodSheetState extends State<AddFoodSheet> {
                             leading: CircleAvatar(
                               radius: 18,
                               backgroundColor: theme
-                                  .colorScheme.primaryContainer
+                                  .colorScheme
+                                  .primaryContainer
                                   .withValues(alpha: 0.6),
                               child: Icon(
                                 _mealIcon(recipe.mealType),
@@ -298,15 +335,29 @@ class _AddFoodSheetState extends State<AddFoodSheet> {
                               ),
                             ),
                             trailing: recipe.isFavorite
-                                ? const Icon(Icons.star,
-                                    size: 18, color: AppColors.blush)
-                                : const Icon(Icons.add_circle_outline, size: 20),
+                                ? const Icon(
+                                    Icons.star,
+                                    size: 18,
+                                    color: AppColors.blush,
+                                  )
+                                : const Icon(
+                                    Icons.add_circle_outline,
+                                    size: 20,
+                                  ),
                             onTap: _saving ? null : () => _addRecipe(recipe),
                           );
                         },
                       ),
               ),
-            ] else
+            ] else if (_mode == 1)
+              Expanded(
+                child: CalorieLibraryView(
+                  basket: repository.basketItems,
+                  saving: _saving,
+                  onAdd: _addNamed,
+                ),
+              )
+            else
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
@@ -333,7 +384,9 @@ class _AddFoodSheetState extends State<AddFoodSheet> {
                           labelText: '热量',
                           suffixText: 'kcal',
                           hintText: '估算即可',
-                          prefixIcon: Icon(Icons.local_fire_department_outlined),
+                          prefixIcon: Icon(
+                            Icons.local_fire_department_outlined,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -350,14 +403,11 @@ class _AddFoodSheetState extends State<AddFoodSheet> {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
-                            : Text(
-                                _markEaten && !_isFuture
-                                    ? '记为已吃'
-                                    : '加入计划',
-                              ),
+                            : Text(_markEaten && !_isFuture ? '记为已吃' : '加入计划'),
                       ),
                     ],
                   ),

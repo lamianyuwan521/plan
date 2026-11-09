@@ -10,6 +10,7 @@ import 'package:xiaoyier/core/app_date.dart';
 import 'package:xiaoyier/data/app_repository.dart';
 import 'package:xiaoyier/features/ai/ai_page.dart';
 import 'package:xiaoyier/models/ai.dart';
+import 'package:xiaoyier/models/basket.dart';
 import 'package:xiaoyier/models/models.dart';
 import 'package:xiaoyier/services/ai_service.dart';
 
@@ -209,6 +210,36 @@ void main() {
       expect(prompt, contains('${repository.dailyBudget} kcal'));
       expect(prompt, contains('燕麦粥 320 kcal（已完成）'));
       expect(prompt, contains('剩余'));
+      expect(prompt, contains('菜篮子：暂无'));
+      expect(prompt, contains('近 7 天'));
+    });
+
+    test('提示词带上菜篮子和近期体重', () async {
+      final repository = await buildRepository();
+      await repository.addBasketItem(
+        BasketItem(
+          id: 'egg',
+          name: '鸡蛋',
+          categoryId: 'eggDairy',
+          amount: 6,
+          unit: '个',
+          kcal: 70,
+        ),
+      );
+      await repository.addWeight(
+        WeightRecord(
+          id: 'w1',
+          date: '2026-11-01',
+          recordedAt: DateTime(2026, 11, 1),
+          weightKg: 63.4,
+        ),
+      );
+
+      final prompt = buildCoachSystemPrompt(repository);
+
+      expect(prompt, contains('鸡蛋 6个'));
+      expect(prompt, contains('63.4 kg'));
+      expect(prompt, contains('2026-11-01'));
     });
   });
 

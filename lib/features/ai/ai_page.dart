@@ -212,7 +212,7 @@ class _SetupPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '小一二可以结合你的体重、热量和喝水记录，回答「今天还能吃什么」这类问题。'
+                  '小一二可以分析你保存在本机的体重、饮食、喝水、运动和菜篮子，再回答今天怎么吃。'
                   '支持智谱 GLM、硅基流动、阿里云百炼的免费额度，也可以填任意 OpenAI 兼容接口。',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -247,10 +247,10 @@ class _EmptyChat extends StatelessWidget {
   final ValueChanged<String> onSuggestion;
 
   static const List<String> _suggestions = [
+    '帮我分析最近的体重和饮食',
     '今天晚饭还能吃多少？',
-    '帮我看看今天的热量搭配',
-    '明天早餐吃什么好？',
-    '喝水总是喝不够，怎么办？',
+    '最近喝水达标了吗？',
+    '按我家里的菜篮子，今晚能做什么？',
   ];
 
   @override
@@ -270,7 +270,7 @@ class _EmptyChat extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          '我已经看过你今天的记录，可以直接问我。',
+          '我已经读过你保存在本机的近期记录，可以直接问我。',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
