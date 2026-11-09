@@ -169,7 +169,7 @@ class MascotAvatar extends StatelessWidget {
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [AppColors.mint, AppColors.peach],
+          colors: [AppColors.caramel, AppColors.blush],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -223,7 +223,7 @@ class ProgressRing extends StatelessWidget {
           trackColor:
               trackColor ?? scheme.primaryContainer.withValues(alpha: 0.65),
           markerValue: markerValue,
-          markerColor: markerColor ?? AppColors.peach,
+          markerColor: markerColor ?? AppColors.honey,
         ),
         child: Center(child: child),
       ),

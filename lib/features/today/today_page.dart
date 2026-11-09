@@ -324,7 +324,7 @@ class _StreakChip extends StatelessWidget {
           const Icon(
             Icons.local_fire_department,
             size: 17,
-            color: AppColors.peach,
+            color: AppColors.honey,
           ),
           const SizedBox(width: 4),
           Text(
@@ -586,7 +586,7 @@ class _TodayExerciseCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.fitness_center, size: 18, color: AppColors.mint),
+              const Icon(Icons.fitness_center, size: 18, color: AppColors.caramel),
               const SizedBox(width: 6),
               Text(
                 '今日运动',

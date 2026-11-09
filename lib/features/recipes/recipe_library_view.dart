@@ -242,7 +242,7 @@ class _RecipeGridCard extends StatelessWidget {
                   recipe.isFavorite ? Icons.star : Icons.star_border,
                   size: 19,
                   color: recipe.isFavorite
-                      ? AppColors.peach
+                      ? AppColors.blush
                       : theme.colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -348,7 +348,7 @@ class _RecipeListCard extends StatelessWidget {
               recipe.isFavorite ? Icons.star : Icons.star_border,
               size: 20,
               color: recipe.isFavorite
-                  ? AppColors.peach
+                  ? AppColors.blush
                   : theme.colorScheme.onSurfaceVariant,
             ),
           ),

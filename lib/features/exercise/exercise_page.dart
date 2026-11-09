@@ -224,7 +224,7 @@ class _RecommendationsView extends StatelessWidget {
                 const Icon(
                   Icons.fitness_center,
                   size: 20,
-                  color: AppColors.mint,
+                  color: AppColors.caramel,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -428,7 +428,7 @@ class _VideoCard extends StatelessWidget {
                       icon: Icon(
                         favorite ? Icons.star : Icons.star_border,
                         size: 20,
-                        color: favorite ? AppColors.peach : Colors.white,
+                        color: favorite ? AppColors.blush : Colors.white,
                       ),
                     ),
                   ),
@@ -687,7 +687,7 @@ class _FavoriteTile extends StatelessWidget {
           IconButton(
             tooltip: '取消收藏',
             onPressed: () => repository.toggleExerciseFavorite(video.id),
-            icon: const Icon(Icons.star, color: AppColors.peach, size: 20),
+            icon: const Icon(Icons.star, color: AppColors.blush, size: 20),
           ),
           IconButton(
             tooltip: '加入计划',
@@ -1217,13 +1217,13 @@ IconData categoryIcon(String id) {
 
 Color categoryColor(String id, ColorScheme scheme) {
   return switch (id) {
-    'dumbbell' => AppColors.peach,
+    'dumbbell' => AppColors.honey,
     'cardio' => AppColors.danger,
     'shoulder' => AppColors.warning,
-    'arms' => const Color(0xFF8E7CC3),
+    'arms' => AppColors.blush,
     'waist' => scheme.primary,
     'calves' => AppColors.water,
-    'stretch' => const Color(0xFF6FAE8A),
+    'stretch' => const Color(0xFFE7B4A0),
     _ => scheme.primary,
   };
 }

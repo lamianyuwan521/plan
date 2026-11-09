@@ -186,7 +186,7 @@ class WeightChart extends StatelessWidget {
             LineChartBarData(
               spots: data.spots,
               isCurved: false,
-              color: AppColors.mint,
+              color: AppColors.caramel,
               barWidth: 2.6,
               isStrokeCapRound: true,
               dotData: FlDotData(
@@ -194,7 +194,7 @@ class WeightChart extends StatelessWidget {
                 getDotPainter: (spot, percent, barData, index) =>
                     FlDotCirclePainter(
                   radius: 2.6,
-                  color: AppColors.mint,
+                  color: AppColors.caramel,
                   strokeWidth: 0,
                 ),
               ),
@@ -204,8 +204,8 @@ class WeightChart extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    AppColors.mint.withValues(alpha: 0.16),
-                    AppColors.mint.withValues(alpha: 0),
+                    AppColors.caramel.withValues(alpha: 0.16),
+                    AppColors.caramel.withValues(alpha: 0),
                   ],
                 ),
               ),
@@ -214,7 +214,7 @@ class WeightChart extends StatelessWidget {
               LineChartBarData(
                 spots: data.maSpots,
                 isCurved: false,
-                color: AppColors.peach,
+                color: AppColors.honey,
                 barWidth: 2,
                 dashArray: [6, 4],
                 dotData: FlDotData(show: false),

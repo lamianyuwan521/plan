@@ -44,7 +44,7 @@ class RecipeDetailPage extends StatelessWidget {
             onPressed: () => repository.toggleFavorite(recipe.id),
             icon: Icon(
               recipe.isFavorite ? Icons.star : Icons.star_border,
-              color: recipe.isFavorite ? AppColors.peach : null,
+              color: recipe.isFavorite ? AppColors.blush : null,
             ),
           ),
           PopupMenuButton<String>(

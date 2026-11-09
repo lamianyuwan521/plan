@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_date.dart';
+import '../../core/app_theme.dart';
 import '../../core/formatters.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
@@ -298,7 +299,7 @@ class _AddFoodSheetState extends State<AddFoodSheet> {
                             ),
                             trailing: recipe.isFavorite
                                 ? const Icon(Icons.star,
-                                    size: 18, color: Color(0xFFF2A65A))
+                                    size: 18, color: AppColors.blush)
                                 : const Icon(Icons.add_circle_outline, size: 20),
                             onTap: _saving ? null : () => _addRecipe(recipe),
                           );
