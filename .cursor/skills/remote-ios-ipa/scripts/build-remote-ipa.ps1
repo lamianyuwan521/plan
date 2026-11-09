@@ -283,15 +283,60 @@ function Wait-Completion([string]$Id) {
     Die 3 "DO_NOT_DISPATCH timed out waiting for run $Id. Do not dispatch another build. Resume with -Mode run -RunId $Id"
 }
 
+function Get-GhToken {
+    if (-not [string]::IsNullOrWhiteSpace($env:GH_TOKEN)) { return $env:GH_TOKEN.Trim() }
+    if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_TOKEN)) { return $env:GITHUB_TOKEN.Trim() }
+    $token = & $script:Gh auth token
+    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace([string]$token)) {
+        return ([string]$token).Trim()
+    }
+    return $null
+}
+
+function Save-IpaWithCurl([string]$Id, [string]$Tmp) {
+    $token = Get-GhToken
+    if (-not $token) {
+        Die 1 "gh run download failed and no token was available for the curl fallback. Do not dispatch another build."
+    }
+    $metaText = & $script:Gh api "repos/$($script:Repo)/actions/runs/$Id/artifacts"
+    if ($LASTEXITCODE -ne 0) {
+        Die 1 "Could not list artifacts for run $Id. Do not dispatch another build."
+    }
+    $meta = (Join-NativeText $metaText) | ConvertFrom-Json
+    $art = @($meta.artifacts) | Where-Object { $_.name -eq $Artifact -and -not $_.expired } | Select-Object -First 1
+    if (-not $art) {
+        Die 1 "Run $Id has no artifact named $Artifact. Do not dispatch another build."
+    }
+    if (Test-Path -LiteralPath $Tmp) { Remove-Item -LiteralPath $Tmp -Recurse -Force }
+    New-Item -ItemType Directory -Force -Path $Tmp | Out-Null
+    $zip = Join-Path $Tmp "artifact.zip"
+    $apiUrl = "https://api.github.com/repos/$($script:Repo)/actions/artifacts/$($art.id)/zip"
+    & curl.exe -sS -L --retry 3 --retry-delay 5 --retry-all-errors -H "Authorization: Bearer $token" -H "Accept: application/vnd.github+json" -o $zip $apiUrl
+    if ($LASTEXITCODE -ne 0) {
+        Die 1 "curl could not download artifact $($art.id). Do not dispatch another build."
+    }
+    Expand-Archive -LiteralPath $zip -DestinationPath $Tmp -Force
+}
+
 function Save-Ipa($View, [string]$Id) {
     $tmp = Join-Path $env:TEMP "xiaoyier-ipa-$Id"
-    if (Test-Path -LiteralPath $tmp) {
-        Remove-Item -LiteralPath $tmp -Recurse -Force
+    $downloaded = $false
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        if (Test-Path -LiteralPath $tmp) {
+            Remove-Item -LiteralPath $tmp -Recurse -Force
+        }
+        New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+        & $script:Gh run download $Id --repo $script:Repo --name $Artifact --dir $tmp
+        if ($LASTEXITCODE -eq 0) {
+            $downloaded = $true
+            break
+        }
+        Write-Host "DOWNLOAD_ATTEMPT=$attempt failed"
+        if ($attempt -lt 3) { Start-Sleep -Seconds 15 }
     }
-    New-Item -ItemType Directory -Force -Path $tmp | Out-Null
-    & $script:Gh run download $Id --repo $script:Repo --name $Artifact --dir $tmp
-    if ($LASTEXITCODE -ne 0) {
-        Die 1 "gh run download failed for artifact $Artifact"
+    if (-not $downloaded) {
+        Write-Host "DOWNLOAD_FALLBACK=curl"
+        Save-IpaWithCurl $Id $tmp
     }
     $ipa = Get-ChildItem -LiteralPath $tmp -Filter *.ipa -Recurse |
         Sort-Object Length -Descending |
