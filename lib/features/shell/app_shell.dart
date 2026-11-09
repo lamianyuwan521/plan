@@ -5,13 +5,14 @@ import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
 import '../ai/ai_page.dart';
 import '../exercise/exercise_page.dart';
+import '../gallery/gallery_page.dart';
 import '../recipes/recipes_page.dart';
 import '../settings/settings_page.dart';
 import '../today/today_page.dart';
 import '../water/water_page.dart';
 import '../weight/weight_page.dart';
 
-enum ShellSection { today, recipes, exercise, weight, water, ai }
+enum ShellSection { today, recipes, exercise, weight, water, gallery, ai }
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -77,6 +78,7 @@ class _AppShellState extends State<AppShell> {
           const ExercisePage(),
           const WeightPage(),
           const WaterPage(),
+          const GalleryPage(),
           const AiPage(),
         ];
         final content = Center(
@@ -324,6 +326,13 @@ class AppSidebar extends StatelessWidget {
             expanded: expanded,
             selected: selected == ShellSection.water,
             onTap: () => onSelect(ShellSection.water),
+          ),
+          _SidebarItem(
+            icon: Icons.photo_library_outlined,
+            label: '图集',
+            expanded: expanded,
+            selected: selected == ShellSection.gallery,
+            onTap: () => onSelect(ShellSection.gallery),
           ),
           _SidebarItem(
             icon: Icons.auto_awesome_outlined,

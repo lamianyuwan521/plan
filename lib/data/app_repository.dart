@@ -8,7 +8,9 @@ import '../core/app_date.dart';
 import '../core/calculators.dart';
 import '../models/ai.dart';
 import '../models/exercise.dart';
+import '../models/gallery.dart';
 import '../models/models.dart';
+import '../services/gallery_store.dart';
 import 'seed_exercises.dart';
 import 'seed_plans.dart';
 import 'seed_recipes.dart';
@@ -30,6 +32,8 @@ class AppRepository extends ChangeNotifier {
   static const String _kCustomPlans = 'xy.customPlans';
   static const String _kExerciseFavorites = 'xy.exerciseFavorites';
   static const String _kExercisePlan = 'xy.exercisePlan';
+  static const String _kGalleryCategories = 'xy.galleryCategories';
+  static const String _kGalleryPhotos = 'xy.galleryPhotos';
 
   static const List<String> _mealOrder = [
     'breakfast',
@@ -48,6 +52,8 @@ class AppRepository extends ChangeNotifier {
   final List<DietPlan> _customPlans = [];
   final List<ExercisePlanEntry> _exerciseEntries = [];
   final Set<String> _favoriteExercises = <String>{};
+  final List<GalleryCategory> _galleryCategories = [];
+  final List<GalleryPhoto> _galleryPhotos = [];
   AiConfig _aiConfig = const AiConfig();
 
   bool _loaded = false;
@@ -102,6 +108,26 @@ class AppRepository extends ChangeNotifier {
 
   bool isExerciseFavorite(String id) => _favoriteExercises.contains(id);
 
+  List<GalleryCategory> get galleryCategories {
+    final list = _galleryCategories.toList();
+    list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return List<GalleryCategory>.unmodifiable(list);
+  }
+
+  List<GalleryPhoto> get galleryPhotos {
+    final list = _galleryPhotos.toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return List<GalleryPhoto>.unmodifiable(list);
+  }
+
+  GalleryCategory? galleryCategoryById(String? id) {
+    if (id == null) return null;
+    for (final category in _galleryCategories) {
+      if (category.id == id) return category;
+    }
+    return null;
+  }
+
   ExerciseVideo? exerciseById(String id) {
     for (final video in seedExercises) {
       if (video.id == id) return video;
@@ -145,6 +171,21 @@ class AppRepository extends ChangeNotifier {
         ..clear()
         ..addAll(
           _prefs!.getStringList(_kExerciseFavorites) ?? const <String>[],
+        );
+      _galleryCategories
+        ..clear()
+        ..addAll(
+          _decodeList(_kGalleryCategories, GalleryCategory.fromJson).where(
+            (category) => category.id.isNotEmpty && category.name.isNotEmpty,
+          ),
+        );
+      _galleryPhotos
+        ..clear()
+        ..addAll(
+          _decodeList(
+            _kGalleryPhotos,
+            GalleryPhoto.fromJson,
+          ).where((photo) => photo.id.isNotEmpty),
         );
       final aiRaw = _prefs!.getString(_kAiConfig);
       if (aiRaw != null && aiRaw.isNotEmpty) {
@@ -249,6 +290,20 @@ class AppRepository extends ChangeNotifier {
     await _prefs?.setStringList(
       _kExerciseFavorites,
       _favoriteExercises.toList(growable: false),
+    );
+  }
+
+  Future<void> _saveGalleryCategories() async {
+    await _prefs?.setString(
+      _kGalleryCategories,
+      jsonEncode(_galleryCategories.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  Future<void> _saveGalleryPhotos() async {
+    await _prefs?.setString(
+      _kGalleryPhotos,
+      jsonEncode(_galleryPhotos.map((e) => e.toJson()).toList()),
     );
   }
 
@@ -680,6 +735,120 @@ class AppRepository extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // 图集
+  // ---------------------------------------------------------------------------
+
+  bool _validCategoryName(String name, {String? exceptId}) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || trimmed.length > 20) return false;
+    return !_galleryCategories.any(
+      (category) => category.id != exceptId && category.name == trimmed,
+    );
+  }
+
+  Future<GalleryCategory?> addGalleryCategory(String name) async {
+    final trimmed = name.trim();
+    if (!_validCategoryName(trimmed)) return null;
+    final category = GalleryCategory(
+      id: newId(),
+      name: trimmed,
+      createdAt: DateTime.now(),
+    );
+    _galleryCategories.add(category);
+    await _saveGalleryCategories();
+    notifyListeners();
+    return category;
+  }
+
+  Future<bool> renameGalleryCategory(String id, String name) async {
+    final trimmed = name.trim();
+    if (!_validCategoryName(trimmed, exceptId: id)) return false;
+    final index = _galleryCategories.indexWhere(
+      (category) => category.id == id,
+    );
+    if (index < 0) return false;
+    _galleryCategories[index] = _galleryCategories[index].copyWith(
+      name: trimmed,
+    );
+    await _saveGalleryCategories();
+    notifyListeners();
+    return true;
+  }
+
+  /// 删除分类。图片保留，并回到未分类。
+  Future<void> deleteGalleryCategory(String id) async {
+    final before = _galleryCategories.length;
+    _galleryCategories.removeWhere((category) => category.id == id);
+    if (_galleryCategories.length == before) return;
+    for (var i = 0; i < _galleryPhotos.length; i++) {
+      if (_galleryPhotos[i].categoryId == id) {
+        _galleryPhotos[i] = _galleryPhotos[i].copyWith(categoryId: null);
+      }
+    }
+    await _saveGalleryCategories();
+    await _saveGalleryPhotos();
+    notifyListeners();
+  }
+
+  Future<int> addGalleryPhotos({
+    String? categoryId,
+    required List<GalleryPhotoInput> photos,
+  }) async {
+    if (categoryId != null && galleryCategoryById(categoryId) == null) {
+      categoryId = null;
+    }
+    final now = DateTime.now();
+    var saved = 0;
+    for (var i = 0; i < photos.length; i++) {
+      final input = photos[i];
+      if (input.bytes.isEmpty) continue;
+      final id = newId();
+      final ok = await saveGalleryBytes(id, input.bytes);
+      if (!ok) continue;
+      final width = input.width <= 0 ? 1 : input.width;
+      final height = input.height <= 0 ? 1 : input.height;
+      _galleryPhotos.add(
+        GalleryPhoto(
+          id: id,
+          categoryId: categoryId,
+          width: width,
+          height: height,
+          createdAt: now.subtract(Duration(milliseconds: i)),
+        ),
+      );
+      saved++;
+    }
+    if (saved == 0) return 0;
+    await _saveGalleryPhotos();
+    notifyListeners();
+    return saved;
+  }
+
+  Future<void> setGalleryPhotoCategory(String id, String? categoryId) async {
+    if (categoryId != null && galleryCategoryById(categoryId) == null) return;
+    final index = _galleryPhotos.indexWhere((photo) => photo.id == id);
+    if (index < 0) return;
+    _galleryPhotos[index] = _galleryPhotos[index].copyWith(
+      categoryId: categoryId,
+    );
+    await _saveGalleryPhotos();
+    notifyListeners();
+  }
+
+  Future<void> deleteGalleryPhoto(String id) async {
+    final before = _galleryPhotos.length;
+    _galleryPhotos.removeWhere((photo) => photo.id == id);
+    if (_galleryPhotos.length == before) return;
+    await deleteGalleryBytes(id);
+    await _saveGalleryPhotos();
+    notifyListeners();
+  }
+
+  Future<Uint8List?> loadGalleryPhoto(String id) => loadGalleryBytes(id);
+
+  Uint8List? peekGalleryPhoto(String id) => peekGalleryBytes(id);
+
+  // ---------------------------------------------------------------------------
   // 导出与清理
   // ---------------------------------------------------------------------------
 
@@ -698,6 +867,8 @@ class AppRepository extends ChangeNotifier {
       'customDietPlans': _customPlans.map((e) => e.toJson()).toList(),
       'exercisePlan': _exerciseEntries.map((e) => e.toJson()).toList(),
       'exerciseFavorites': _favoriteExercises.toList(growable: false),
+      'galleryCategories': _galleryCategories.map((e) => e.toJson()).toList(),
+      'galleryPhotos': _galleryPhotos.map((e) => e.toJson()).toList(),
     });
   }
 
@@ -769,10 +940,15 @@ class AppRepository extends ChangeNotifier {
     _entries.clear();
     _water.clear();
     _exerciseEntries.clear();
+    _galleryCategories.clear();
+    _galleryPhotos.clear();
     await _saveWeights();
     await _saveEntries();
     await _saveWater();
     await _saveExercisePlan();
+    await _saveGalleryCategories();
+    await _saveGalleryPhotos();
+    await clearGalleryBytes();
     notifyListeners();
   }
 
@@ -784,7 +960,10 @@ class AppRepository extends ChangeNotifier {
     _customPlans.clear();
     _exerciseEntries.clear();
     _favoriteExercises.clear();
+    _galleryCategories.clear();
+    _galleryPhotos.clear();
     _profile = const Profile();
+    await clearGalleryBytes();
     await _prefs?.clear();
     await _prefs?.setInt(_kSeedVersion, 0);
     await _seedIfNeeded();

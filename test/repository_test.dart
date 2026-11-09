@@ -1,7 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xiaoyier/core/app_date.dart';
 import 'package:xiaoyier/data/app_repository.dart';
+import 'package:xiaoyier/models/gallery.dart';
 import 'package:xiaoyier/models/models.dart';
 
 void main() {
@@ -117,6 +120,69 @@ void main() {
     expect(repository.mealEntries, isEmpty);
     expect(repository.recipes.length, 22);
     expect(repository.profile.nickname, '测试');
+  });
+
+  test('图集可以自行分类，删除分类后图片留在未分类', () async {
+    final food = await repository.addGalleryCategory('饮食');
+    final body = await repository.addGalleryCategory('身材');
+    expect(food, isNotNull);
+    expect(body, isNotNull);
+    expect(await repository.addGalleryCategory('饮食'), isNull);
+    expect(await repository.addGalleryCategory('  '), isNull);
+    expect(await repository.renameGalleryCategory(body!.id, '饮食'), isFalse);
+    expect(await repository.renameGalleryCategory(body.id, '体态'), isTrue);
+
+    final saved = await repository.addGalleryPhotos(
+      categoryId: food!.id,
+      photos: [
+        GalleryPhotoInput(
+          bytes: Uint8List.fromList(const [1, 2, 3, 4]),
+          width: 400,
+          height: 800,
+        ),
+        GalleryPhotoInput(
+          bytes: Uint8List.fromList(const [5, 6]),
+          width: 800,
+          height: 400,
+        ),
+      ],
+    );
+    expect(saved, 2);
+    expect(repository.galleryPhotos.first.categoryId, food.id);
+    expect(repository.galleryPhotos.first.width, 400);
+    final bytes = await repository.loadGalleryPhoto(
+      repository.galleryPhotos.first.id,
+    );
+    expect(bytes, [1, 2, 3, 4]);
+    expect(repository.exportJson(), contains('galleryPhotos'));
+    expect(repository.exportJson(), contains('饮食'));
+
+    await repository.deleteGalleryCategory(food.id);
+    expect(repository.galleryCategories.map((item) => item.name), ['体态']);
+    expect(
+      repository.galleryPhotos.every((photo) => photo.categoryId == null),
+      isTrue,
+    );
+
+    await repository.setGalleryPhotoCategory(
+      repository.galleryPhotos.first.id,
+      body.id,
+    );
+    expect(
+      repository.galleryPhotos.where((photo) => photo.categoryId == body.id),
+      hasLength(1),
+    );
+
+    final removedId = repository.galleryPhotos.last.id;
+    await repository.deleteGalleryPhoto(removedId);
+    expect(await repository.loadGalleryPhoto(removedId), isNull);
+    expect(repository.galleryPhotos, hasLength(1));
+
+    await repository.clearBusinessData();
+    expect(repository.galleryPhotos, isEmpty);
+    expect(repository.galleryCategories, isEmpty);
+    expect(repository.recipes, hasLength(22));
+    expect(repository.profile.nickname, isNotEmpty);
   });
 
   test('导出 JSON 与 CSV 包含数据', () async {
