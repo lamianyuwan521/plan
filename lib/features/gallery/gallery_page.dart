@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_date.dart';
+import '../../core/fold_layout.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
 import '../../models/gallery.dart';
@@ -167,7 +168,8 @@ class _GalleryPageState extends State<GalleryPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
+        DuoBlock(
+          child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
           child: PageHeader(
             title: '图集',
@@ -180,6 +182,7 @@ class _GalleryPageState extends State<GalleryPage> {
               ),
             ],
           ),
+        ),
         ),
         const SizedBox(height: 12),
         SizedBox(
@@ -309,15 +312,32 @@ class _Masonry extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final columns = width >= 1100
+        final geo = DuoScope.maybeOf(context);
+        final fitted = geo?.fit(width, geo.height);
+        final creased =
+            fitted != null &&
+            fitted.hasCrease &&
+            fitted.sideBySide &&
+            fitted.splitActive;
+        const gap = 10.0;
+        const horizontal = 16.0;
+        final columns = creased
+            ? 2
+            : width >= 1100
             ? 4
             : width >= 760
             ? 3
             : 2;
-        const gap = 10.0;
-        const horizontal = 16.0;
-        final itemWidth =
-            (width - horizontal * 2 - gap * (columns - 1)) / columns;
+        final columnWidths = creased
+            ? <double>[
+                (fitted.leading - horizontal).clamp(80.0, width),
+                (fitted.trailing - horizontal).clamp(80.0, width),
+              ]
+            : List<double>.filled(
+                columns,
+                (width - horizontal * 2 - gap * (columns - 1)) / columns,
+              );
+        final columnGap = creased ? fitted.gutter : gap;
         final heights = List<double>.filled(columns, 0);
         final buckets = List<List<GalleryPhoto>>.generate(
           columns,
@@ -329,7 +349,7 @@ class _Masonry extends StatelessWidget {
             if (heights[i] < heights[target]) target = i;
           }
           buckets[target].add(photo);
-          heights[target] += _tileHeight(photo, itemWidth) + gap;
+          heights[target] += _tileHeight(photo, columnWidths[target]) + gap;
         }
 
         return SingleChildScrollView(
@@ -338,9 +358,9 @@ class _Masonry extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               for (var i = 0; i < columns; i++) ...[
-                if (i > 0) const SizedBox(width: gap),
+                if (i > 0) SizedBox(width: columnGap),
                 SizedBox(
-                  width: itemWidth,
+                  width: columnWidths[i],
                   child: Column(
                     children: [
                       for (final photo in buckets[i])
@@ -349,7 +369,7 @@ class _Masonry extends StatelessWidget {
                           child: _PhotoTile(
                             key: ValueKey(photo.id),
                             photo: photo,
-                            width: itemWidth,
+                            width: columnWidths[i],
                             badge: showBadge ? badgeFor(photo) : null,
                             onTap: () => onTap(photo),
                           ),

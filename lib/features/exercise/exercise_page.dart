@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_date.dart';
 import '../../core/app_theme.dart';
+import '../../core/fold_layout.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
 import '../../data/seed_exercises.dart';
@@ -69,9 +70,11 @@ class _ExercisePageState extends State<ExercisePage> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const Padding(
+        const DuoBlock(
+          child: Padding(
           padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
           child: PageHeader(title: '运动', subtitle: 'B 站热门跟练，按方向挑一个，点开就能跳转'),
+        ),
         ),
         const SizedBox(height: 12),
         Padding(
@@ -318,6 +321,46 @@ class _CategorySection extends StatelessWidget {
         const SizedBox(height: 10),
         LayoutBuilder(
           builder: (context, constraints) {
+            final geo = DuoScope.maybeOf(context)?.fit(
+              constraints.maxWidth,
+              800,
+            );
+            if (geo != null &&
+                geo.hasCrease &&
+                geo.sideBySide &&
+                geo.splitActive) {
+              final leftVideos = <ExerciseVideo>[
+                for (var i = 0; i < videos.length; i += 2) videos[i],
+              ];
+              final rightVideos = <ExerciseVideo>[
+                for (var i = 1; i < videos.length; i += 2) videos[i],
+              ];
+              Widget column(List<ExerciseVideo> items, double width) {
+                return SizedBox(
+                  width: width,
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < items.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 12),
+                        _VideoCard(
+                          video: items[i],
+                          onAddToPlan: () => onAddToPlan(items[i]),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  column(leftVideos, geo.leading),
+                  SizedBox(width: geo.gutter),
+                  column(rightVideos, geo.trailing),
+                ],
+              );
+            }
             if (constraints.maxWidth >= 760) {
               final columns = constraints.maxWidth >= 1060 ? 3 : 2;
               const spacing = 12.0;

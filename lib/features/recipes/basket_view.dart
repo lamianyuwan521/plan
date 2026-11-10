@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/fold_layout.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
 import '../../data/food_catalog.dart';
@@ -85,10 +86,9 @@ class _BasketViewState extends State<BasketView> {
     final categoryIds = groups.keys.toList()
       ..sort((a, b) => foodCategoryOrder(a).compareTo(foodCategoryOrder(b)));
 
-    return ListView(
+    return DuoSplit(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-      children: [
-        SectionCard(
+      first: SectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -120,7 +120,9 @@ class _BasketViewState extends State<BasketView> {
             ],
           ),
         ),
-        const SizedBox(height: 14),
+      second: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         Row(
           children: [
             Expanded(
@@ -197,7 +199,8 @@ class _BasketViewState extends State<BasketView> {
               const SizedBox(height: 8),
             ],
           ],
-      ],
+        ],
+      ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_theme.dart';
+import '../../core/fold_layout.dart';
 import '../../core/formatters.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
@@ -123,6 +124,43 @@ class _RecipeLibraryViewState extends State<RecipeLibraryView> {
                 )
               : LayoutBuilder(
                   builder: (context, constraints) {
+                    final geo = DuoScope.maybeOf(context)?.fit(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    );
+                    if (geo != null &&
+                        geo.hasCrease &&
+                        geo.sideBySide &&
+                        geo.splitActive) {
+                      Widget column(List<Recipe> items) {
+                        return ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 8, 24),
+                          itemCount: items.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) => _RecipeGridCard(
+                            recipe: items[index],
+                            onTap: () => _openDetail(items[index]),
+                            onFavorite: () =>
+                                repository.toggleFavorite(items[index].id),
+                          ),
+                        );
+                      }
+
+                      final left = <Recipe>[
+                        for (var i = 0; i < recipes.length; i += 2) recipes[i],
+                      ];
+                      final right = <Recipe>[
+                        for (var i = 1; i < recipes.length; i += 2) recipes[i],
+                      ];
+                      return Row(
+                        children: [
+                          SizedBox(width: geo.leading, child: column(left)),
+                          SizedBox(width: geo.gutter),
+                          SizedBox(width: geo.trailing, child: column(right)),
+                        ],
+                      );
+                    }
                     if (constraints.maxWidth >= 760) {
                       return GridView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),

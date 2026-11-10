@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/fold_layout.dart';
 import '../../core/widgets.dart';
 import 'calendar_view.dart';
 import 'plan_view.dart';
@@ -45,7 +46,8 @@ class _RecipesPageState extends State<RecipesPage> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Padding(
+        DuoBlock(
+          child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
           child: PageHeader(
             title: '食谱',
@@ -68,14 +70,17 @@ class _RecipesPageState extends State<RecipesPage> {
             ],
           ),
         ),
+        ),
         const SizedBox(height: 12),
-        Padding(
+        DuoBlock(
+          child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _SegmentedTabs(
             value: _tab,
             labels: const ['日历', '食谱库', '计划'],
             onChanged: (value) => setState(() => _tab = value),
           ),
+        ),
         ),
         const SizedBox(height: 8),
         Expanded(child: _RecipesBody(tab: _tab)),

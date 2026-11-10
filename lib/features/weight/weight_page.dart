@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_date.dart';
 import '../../core/calculators.dart';
+import '../../core/fold_layout.dart';
 import '../../core/formatters.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
@@ -36,9 +37,11 @@ class _WeightPageState extends State<WeightPage> {
     final totalChange = current - profile.startWeightKg;
     final targetDistance = target == null ? null : current - target;
 
-    return ListView(
+    return DuoSplit(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-      children: [
+      first: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         PageHeader(
           title: '体重',
           subtitle: '建议每天在同一时间、同样的状态下称重',
@@ -174,7 +177,11 @@ class _WeightPageState extends State<WeightPage> {
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        ],
+      ),
+      second: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         Row(
           children: [
             Text(
@@ -205,7 +212,8 @@ class _WeightPageState extends State<WeightPage> {
           )
         else
           ..._buildGroups(context, repository, descending, records, unit),
-      ],
+        ],
+      ),
     );
   }
 

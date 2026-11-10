@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_date.dart';
 import '../../core/app_theme.dart';
+import '../../core/fold_layout.dart';
 import '../../core/formatters.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
@@ -66,13 +67,7 @@ class _CalendarViewState extends State<CalendarView> {
     final days = AppDate.monthGridDays(_month, weekStart);
     final headers = AppDate.weekdayHeaders(weekStart);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-      children: [
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: SectionCard(
+    final calendar = SectionCard(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
               child: Column(
                 children: [
@@ -151,12 +146,13 @@ class _CalendarViewState extends State<CalendarView> {
                   const _CalendarLegend(),
                 ],
               ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        DayDetailView(dateKey: AppDate.key(_selected)),
-      ],
+            );
+
+    return DuoSplit(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      gap: 16,
+      first: calendar,
+      second: DayDetailView(dateKey: AppDate.key(_selected)),
     );
   }
 }

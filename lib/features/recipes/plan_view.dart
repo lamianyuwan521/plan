@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_date.dart';
+import '../../core/fold_layout.dart';
 import '../../core/formatters.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
@@ -260,6 +261,51 @@ class _LongTermPlansSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final geo = DuoScope.maybeOf(context)?.fit(
+          constraints.maxWidth,
+          400,
+        );
+        if (geo != null &&
+            geo.hasCrease &&
+            geo.sideBySide &&
+            geo.splitActive) {
+          final left = <DietPlan>[
+            for (var i = 0; i < plans.length; i += 2) plans[i],
+          ];
+          final right = <DietPlan>[
+            for (var i = 1; i < plans.length; i += 2) plans[i],
+          ];
+          Widget column(List<DietPlan> items, double width) {
+            return SizedBox(
+              width: width,
+              child: Column(
+                children: [
+                  for (var i = 0; i < items.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 12),
+                    SizedBox(
+                      height: 168,
+                      child: _LongTermPlanCard(
+                        plan: items[i],
+                        onEdit: () => onEdit(items[i]),
+                        onCopy: () => onCopy(items[i]),
+                        onDelete: () => onDelete(items[i]),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              column(left, geo.leading),
+              SizedBox(width: geo.gutter),
+              column(right, geo.trailing),
+            ],
+          );
+        }
         if (constraints.maxWidth >= 760) {
           const spacing = 12.0;
           final width = (constraints.maxWidth - spacing) / 2;

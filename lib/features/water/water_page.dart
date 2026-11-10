@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_date.dart';
 import '../../core/app_theme.dart';
+import '../../core/fold_layout.dart';
 import '../../core/formatters.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
@@ -29,9 +30,11 @@ class WaterPage extends StatelessWidget {
       (index) => today.subtract(Duration(days: 6 - index)),
     );
 
-    return ListView(
+    return DuoSplit(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-      children: [
+      first: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         PageHeader(
           title: '喝水',
           subtitle: '目标 $goal ml · 少量多次更容易坚持',
@@ -145,7 +148,11 @@ class WaterPage extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        ],
+      ),
+      second: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         SectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,7 +231,8 @@ class WaterPage extends StatelessWidget {
             ],
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 

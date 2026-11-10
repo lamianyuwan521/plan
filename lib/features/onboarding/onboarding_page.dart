@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_date.dart';
+import '../../core/fold_layout.dart';
 import '../../core/app_theme.dart';
 import '../../core/calculators.dart';
 import '../../core/formatters.dart';
@@ -159,7 +160,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
     final theme = Theme.of(context);
     return Scaffold(
       body: SafeArea(
-        child: Center(
+        child: DuoStage(
+          title: '小一二减肥记',
+          message: '合上时一步一步填。展开后，向导停在一侧，折痕上不放按钮。',
+          child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
             child: Column(
@@ -242,6 +246,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ],
             ),
           ),
+        ),
         ),
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/fold_layout.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
 import '../ai/ai_page.dart';
@@ -71,12 +72,13 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final repository = context.watch<AppRepository>();
+    final layout = DuoLayout.of(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 600;
-        final isWide = constraints.maxWidth >= 1024;
-        final expanded = _expandedOverride ??
+        final isWide = constraints.maxWidth >= 1024 && layout.hinge == null;
+        final expanded =
+            _expandedOverride ??
             (isWide ? repository.profile.sidebarExpanded : false);
 
         final pages = <Widget>[
@@ -98,14 +100,19 @@ class _AppShellState extends State<AppShell> {
           const GalleryPage(),
           const AiPage(),
         ];
-        final content = Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: IndexedStack(index: _section.index, children: pages),
-          ),
-        );
+        final stack = IndexedStack(index: _section.index, children: pages);
+        // A crease has to cut the real screen, so the page is not letterboxed.
+        final frame = layout.hinge != null || layout.topBottom
+            ? stack
+            : Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1200),
+                  child: stack,
+                ),
+              );
+        final content = DuoScope(child: frame);
 
-        if (isMobile) {
+        if (layout.isPhone) {
           return Scaffold(
             key: _scaffoldKey,
             appBar: AppBar(
@@ -135,6 +142,42 @@ class _AppShellState extends State<AppShell> {
               ),
             ),
             body: content,
+          );
+        }
+
+        if (layout.topBottom) {
+          return Scaffold(
+            body: Column(
+              children: [
+                Expanded(child: content),
+                _DuoBottomNav(selected: _section, onSelect: _select),
+              ],
+            ),
+          );
+        }
+
+        if (layout.hinge != null && layout.sideBySide) {
+          return Scaffold(
+            body: Row(
+              children: [
+                SizedBox(
+                  width: 84,
+                  child: SafeArea(
+                    right: false,
+                    child: AppSidebar(
+                      expanded: false,
+                      showToggle: false,
+                      selected: _section,
+                      onSelect: _select,
+                      onToggle: () {},
+                      onSettings: _openSettings,
+                    ),
+                  ),
+                ),
+                const VerticalDivider(width: 1),
+                Expanded(child: content),
+              ],
+            ),
           );
         }
 
@@ -226,6 +269,107 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
+class _DuoNavDestination {
+  const _DuoNavDestination(this.section, this.icon, this.label);
+
+  final ShellSection section;
+  final IconData icon;
+  final String label;
+}
+
+class _DuoBottomNav extends StatelessWidget {
+  const _DuoBottomNav({required this.selected, required this.onSelect});
+
+  final ShellSection selected;
+  final ValueChanged<ShellSection> onSelect;
+
+  static const _items = <_DuoNavDestination>[
+    _DuoNavDestination(ShellSection.today, Icons.wb_sunny_outlined, '今日'),
+    _DuoNavDestination(ShellSection.recipes, Icons.restaurant_outlined, '食谱'),
+    _DuoNavDestination(
+      ShellSection.basket,
+      Icons.shopping_basket_outlined,
+      '菜篮子',
+    ),
+    _DuoNavDestination(ShellSection.exercise, Icons.fitness_center, '运动'),
+    _DuoNavDestination(
+      ShellSection.weight,
+      Icons.monitor_weight_outlined,
+      '体重',
+    ),
+    _DuoNavDestination(ShellSection.water, Icons.water_drop_outlined, '喝水'),
+    _DuoNavDestination(
+      ShellSection.gallery,
+      Icons.photo_library_outlined,
+      '图集',
+    ),
+    _DuoNavDestination(ShellSection.ai, Icons.auto_awesome_outlined, 'AI'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      child: SafeArea(
+        top: false,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: scheme.outlineVariant)),
+          ),
+          child: SizedBox(
+            height: 64,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              itemCount: _items.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 6),
+              itemBuilder: (context, index) {
+                final item = _items[index];
+                final active = item.section == selected;
+                return Material(
+                  color: active ? scheme.primaryContainer : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => onSelect(item.section),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            item.icon,
+                            size: 20,
+                            color: active
+                                ? scheme.primary
+                                : scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            item.label,
+                            style: TextStyle(
+                              fontWeight: active
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                              color: active
+                                  ? scheme.primary
+                                  : scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class AppSidebar extends StatelessWidget {
   const AppSidebar({
     super.key,
@@ -298,12 +442,13 @@ class AppSidebar extends StatelessWidget {
               child: Column(
                 children: [
                   const MascotAvatar(size: 36),
-                  IconButton(
-                    tooltip: '展开侧栏',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: onToggle,
-                    icon: const Icon(Icons.chevron_right, size: 20),
-                  ),
+                  if (showToggle)
+                    IconButton(
+                      tooltip: '展开侧栏',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: onToggle,
+                      icon: const Icon(Icons.chevron_right, size: 20),
+                    ),
                 ],
               ),
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_date.dart';
+import '../../core/fold_layout.dart';
 import '../../core/formatters.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
@@ -25,7 +26,10 @@ class SettingsPage extends StatelessWidget {
       _ => '不透露',
     };
 
-    return Scaffold(
+    return DuoStage(
+      title: '设置',
+      message: '展开后，选项留在一侧。折痕上不放开关，也不放删除按钮。',
+      child: Scaffold(
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(0, 8, 0, 28),
@@ -190,6 +194,7 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 

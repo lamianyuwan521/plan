@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/app_date.dart';
+import '../../core/fold_layout.dart';
+import '../../core/formatters.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
 import '../../models/ai.dart';
@@ -113,7 +116,7 @@ class _AiPageState extends State<AiPage> {
     final config = repository.aiConfig;
     final provider = aiProviderById(config.provider);
 
-    return Padding(
+    final chat = Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -165,6 +168,97 @@ class _AiPageState extends State<AiPage> {
           ],
         ],
       ),
+    );
+
+    final geo = DuoScope.maybeOf(context);
+    if (geo == null || !geo.splitActive || !geo.sideBySide || !config.isConfigured) {
+      return chat;
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(width: geo.leading, child: chat),
+        SizedBox(width: geo.gutter),
+        SizedBox(
+          width: geo.trailing,
+          child: _AiCompanion(
+            repository: repository,
+            onSuggestion: _send,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AiCompanion extends StatelessWidget {
+  const _AiCompanion({required this.repository, required this.onSuggestion});
+
+  final AppRepository repository;
+  final ValueChanged<String> onSuggestion;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final todayKey = AppDate.todayKey();
+    final summary = repository.summaryFor(todayKey);
+    final budget = repository.dailyBudget;
+    final goal = repository.waterGoal;
+    final weight = summary.weightKg;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(8, 24, 16, 24),
+      children: [
+        Text(
+          '今天可以问',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '建议停在这一侧，对话留在折痕另一边。',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 14),
+        SectionCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '本机摘要',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                weight == null
+                    ? '今天还没称重'
+                    : '体重 ${weightText(weight, repository.profile.weightUnit)}',
+              ),
+              const SizedBox(height: 4),
+              Text('已吃 ${summary.consumedKcal} / $budget kcal'),
+              const SizedBox(height: 4),
+              Text('喝水 ${summary.waterMl} / $goal ml'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final suggestion in _EmptyChat._suggestions)
+              ActionChip(
+                label: Text(suggestion),
+                onPressed: () => onSuggestion(suggestion),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

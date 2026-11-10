@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_date.dart';
 import '../../core/app_theme.dart';
+import '../../core/fold_layout.dart';
 import '../../core/formatters.dart';
 import '../../core/widgets.dart';
 import '../../data/app_repository.dart';
@@ -46,9 +47,11 @@ class TodayPage extends StatelessWidget {
         ? '下午好'
         : '晚上好';
 
-    return ListView(
+    return DuoSplit(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-      children: [
+      first: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -172,7 +175,11 @@ class TodayPage extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        ],
+      ),
+      second: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         _MealsCard(
           repository: repository,
           dateKey: todayKey,
@@ -266,7 +273,8 @@ class TodayPage extends StatelessWidget {
             ],
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 
